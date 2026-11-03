@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/agri_card.dart';
+import '../../../marketplace/domain/product_model.dart';
+import '../../../marketplace/presentation/add_product_screen.dart';
+import '../../../marketplace/state/marketplace_provider.dart';
 
-class FarmerMarketplaceTab extends StatelessWidget {
+class FarmerMarketplaceTab extends ConsumerWidget {
   const FarmerMarketplaceTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final marketState = ref.watch(marketplaceProvider);
+    final products = marketState.products;
+
+    final totalStock = products.fold(0.0, (sum, p) => sum + p.availableStockKg);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -14,8 +23,11 @@ class FarmerMarketplaceTab extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primaryGreen, size: 26),
+            tooltip: 'Add New Crop',
             onPressed: () {
-              _showAddProductDialog(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddProductScreen()),
+              );
             },
           ),
         ],
@@ -33,14 +45,14 @@ class FarmerMarketplaceTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.greenAccent),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _SummaryStat(label: 'Active Listings', value: '3 Crops'),
-                  _VerticalDivider(),
-                  _SummaryStat(label: 'Total Stock', value: '3,250 kg'),
-                  _VerticalDivider(),
-                  _SummaryStat(label: 'Total Revenue', value: '₹48,200'),
+                  _SummaryStat(label: 'Active Listings', value: '${products.length} Crops'),
+                  const _VerticalDivider(),
+                  _SummaryStat(label: 'Total Stock', value: '${totalStock.toInt()} kg'),
+                  const _VerticalDivider(),
+                  const _SummaryStat(label: 'Sales Revenue', value: '₹48,200'),
                 ],
               ),
             ),
@@ -54,7 +66,11 @@ class FarmerMarketplaceTab extends StatelessWidget {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 TextButton.icon(
-                  onPressed: () => _showAddProductDialog(context),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AddProductScreen()),
+                    );
+                  },
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Produce'),
                 ),
@@ -62,78 +78,23 @@ class FarmerMarketplaceTab extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            _FarmerProductItem(
-              title: 'Fresh Organic Tomatoes',
-              category: 'Vegetables',
-              pricePerKg: '₹35 / kg',
-              availableStock: '450 kg available',
-              harvestDate: 'Harvested 2 days ago',
-              status: 'In Stock',
-              statusColor: AppColors.primaryGreen,
-            ),
-            const SizedBox(height: 12),
-            _FarmerProductItem(
-              title: 'Sona Masoori Raw Rice',
-              category: 'Grains & Pulses',
-              pricePerKg: '₹55 / kg',
-              availableStock: '2,000 kg available',
-              harvestDate: 'Current Season Harvest',
-              status: 'In Stock',
-              statusColor: AppColors.primaryGreen,
-            ),
-            const SizedBox(height: 12),
-            _FarmerProductItem(
-              title: 'Premium Raw Cotton (Kapas)',
-              category: 'Cash Crops',
-              pricePerKg: '₹75 / kg',
-              availableStock: '800 kg available',
-              harvestDate: 'Harvested 1 week ago',
-              status: 'Selling Fast',
-              statusColor: AppColors.earthAmber,
-            ),
+            ...products.map((p) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: _FarmerProductItem(product: p),
+              );
+            }),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showAddProductDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Crop to Marketplace'),
-        content: const Text(
-          'Farmer product listing with photo upload, kg pricing, and stock inventory will be fully functional in Phase 5 with Cloud Firestore.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
       ),
     );
   }
 }
 
 class _FarmerProductItem extends StatelessWidget {
-  final String title;
-  final String category;
-  final String pricePerKg;
-  final String availableStock;
-  final String harvestDate;
-  final String status;
-  final Color statusColor;
+  final ProductModel product;
 
-  const _FarmerProductItem({
-    required this.title,
-    required this.category,
-    required this.pricePerKg,
-    required this.availableStock,
-    required this.harvestDate,
-    required this.status,
-    required this.statusColor,
-  });
+  const _FarmerProductItem({required this.product});
 
   @override
   Widget build(BuildContext context) {
@@ -159,8 +120,8 @@ class _FarmerProductItem extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      Text(category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      Text(product.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text('${product.category} • ${product.harvestDate}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                     ],
                   ),
                 ],
@@ -168,17 +129,24 @@ class _FarmerProductItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
+                  color: product.isOrganic
+                      ? AppColors.primaryGreen.withValues(alpha: 0.1)
+                      : AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  status,
-                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                  product.isOrganic ? '100% Organic' : 'Standard',
+                  style: TextStyle(
+                    color: product.isOrganic ? AppColors.primaryGreen : AppColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           const Divider(height: 20),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -186,25 +154,33 @@ class _FarmerProductItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Price per kg', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                  Text(pricePerKg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryDark)),
+                  Text('₹${product.pricePerKg.toStringAsFixed(1)} / kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryDark)),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Available Stock', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                  Text(availableStock, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text('${product.availableStockKg.toInt()} kg available', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 ],
               ),
               Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Editing "${product.title}" stock & price')),
+                      );
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.alertRed),
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Archived "${product.title}"')),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -246,4 +222,3 @@ class _VerticalDivider extends StatelessWidget {
     );
   }
 }
-

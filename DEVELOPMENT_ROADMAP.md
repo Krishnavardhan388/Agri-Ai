@@ -85,21 +85,30 @@ This checklist tracks our end-to-end development journey from setup to productio
 
 ---
 
-## 🛒 Phase 5: Farmer Marketplace & Razorpay Payments (NEXT UP)
-- [ ] Farmer crop listing screen: upload crop photo, select category, set price per kg, enter available stock (kg).
-- [ ] Customer catalog: search, category chips, stock check, real-time cart counter.
-- [ ] Customer cart with dynamic subtotal, delivery charges, direct-farm discount, and net payable.
-- [ ] Razorpay payment gateway integration (UPI, Debit/Credit cards, NetBanking).
-- [ ] Cloud Firestore order creation lifecycle: `Pending` ➔ `Accepted` ➔ `In Transit` ➔ `Delivered`.
-- [ ] Verification tests & static analysis.
+## 🛒 Phase 5: Farmer Marketplace & Razorpay Payments ✅ COMPLETED
+- [x] Integrated `razorpay_flutter` for Indian online payments (UPI, Cards, NetBanking).
+- [x] Implemented `ProductModel`, `CartItem`, and `OrderModel` domain entities.
+- [x] Built `ProductRepository` with Cloud Firestore persistence and initial catalog fallback.
+- [x] Built `OrderRepository` for tracking order lifecycle states (`pending` ➔ `accepted` ➔ `packed` ➔ `inTransit` ➔ `delivered`).
+- [x] Built `RazorpayPaymentService` with payment callbacks and seamless testing simulation.
+- [x] Implemented `AddProductScreen` for farmers to register new harvest produce (price per kg, stock in kg, organic toggle).
+- [x] Wired `FarmerMarketplaceTab` with live product counts, total stock in kg, and add-crop action.
+- [x] Wired `CustomerHomeTab` with live catalog, search, category filters, and real-time cart badge.
+- [x] Wired `CustomerCartTab` with dynamic bill calculations (15% direct farm discount, delivery fee) and Razorpay checkout.
+- [x] Wired `CustomerOrdersTab` with dynamic progress stepper and 4-digit handover delivery OTP.
+- [x] Wired `FarmerOrdersTab` with one-tap "Pack Harvest" action.
+- [x] Verified with unit & widget tests (`flutter test` -> 14/14 passed).
+- [x] Verified zero issues (`flutter analyze` -> No issues found).
 
 ---
 
-## 🚚 Phase 6: Delivery Partner Module & Real-Time Tracking
-- [ ] Delivery partner dashboard: available farm pickup & drop jobs.
-- [ ] Order acceptance and Google Maps turn-by-turn navigation.
-- [ ] OTP generation for customer and verification on delivery handover.
-- [ ] Delivery earnings ledger & wallet payout tracking.
+## 🚚 Phase 6: Delivery Partner Module & Real-Time Tracking (NEXT UP)
+- [ ] Connect delivery partner dashboard with live available pickup orders from farmers.
+- [ ] Implement trip acceptance and route preview with pickup and drop addresses.
+- [ ] Google Maps GPS route navigation launch integration.
+- [ ] Doorstep OTP verification modal: partner inputs customer's 4-digit OTP to complete trip handover.
+- [ ] Delivery earnings ledger with wallet payout tracking.
+- [ ] Verification tests & static analysis.
 
 ---
 

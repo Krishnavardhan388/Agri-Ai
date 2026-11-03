@@ -48,3 +48,4 @@ class MandiComparisonItem {
     this.isHighestPrice = false,
   });
 }
+
