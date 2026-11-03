@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/agri_card.dart';
 import '../../../core/widgets/custom_button.dart';
+import '../../voice_assistant/state/voice_assistant_provider.dart';
 import '../domain/crop_diagnosis_result.dart';
 
-class DiagnosisResultScreen extends StatefulWidget {
+class DiagnosisResultScreen extends ConsumerStatefulWidget {
   final CropDiagnosisResult result;
 
   const DiagnosisResultScreen({super.key, required this.result});
 
   @override
-  State<DiagnosisResultScreen> createState() => _DiagnosisResultScreenState();
+  ConsumerState<DiagnosisResultScreen> createState() => _DiagnosisResultScreenState();
 }
 
-class _DiagnosisResultScreenState extends State<DiagnosisResultScreen>
+class _DiagnosisResultScreenState extends ConsumerState<DiagnosisResultScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -176,6 +178,68 @@ class _DiagnosisResultScreenState extends State<DiagnosisResultScreen>
                               color: AppColors.primaryDark,
                             ),
                           ],
+                        ),
+                        const Divider(height: 24),
+
+                        // AGRI MITRA Voice Readout
+                        InkWell(
+                          onTap: () {
+                            ref.read(voiceAssistantProvider.notifier).readCropDiagnosisAloud(result);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('AGRI MITRA is reading the diagnosis aloud...'),
+                                backgroundColor: AppColors.primaryGreen,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.greenSurface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.primaryGreen.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.record_voice_over_rounded,
+                                  color: AppColors.primaryGreen,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Read Diagnosis Aloud',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppColors.primaryDark,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Telugu (తెలుగు) • Hindi (हिन्दी) • English',
+                                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  ref.watch(voiceAssistantProvider).isSpeaking
+                                      ? Icons.volume_up_rounded
+                                      : Icons.play_circle_fill_rounded,
+                                  color: AppColors.primaryGreen,
+                                  size: 26,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),

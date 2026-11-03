@@ -5,6 +5,7 @@ import '../../../../core/widgets/agri_card.dart';
 import '../../../mandi_prices/domain/mandi_crop_model.dart';
 import '../../../mandi_prices/presentation/mandi_market_screen.dart';
 import '../../../smart_farming/state/smart_farming_provider.dart';
+import '../../../voice_assistant/presentation/agri_mitra_voice_screen.dart';
 
 class FarmerHomeTab extends ConsumerWidget {
   final VoidCallback onNavigateToDoctor;
@@ -138,6 +139,80 @@ class FarmerHomeTab extends ConsumerWidget {
                       size: 30,
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // AGRI MITRA Voice Assistant Banner CTA
+            AgriCard(
+              padding: const EdgeInsets.all(14),
+              border: Border.all(color: AppColors.primaryGreen, width: 1.5),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AgriMitraVoiceScreen()),
+                );
+              },
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: AppColors.greenSurface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.record_voice_over_rounded,
+                      color: AppColors.primaryGreen,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'AGRI MITRA AI VOICE',
+                              style: TextStyle(
+                                color: AppColors.primaryGreen,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.earthAmber,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'తెలుగు • हिन्दी • English',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Speak your farming questions',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const Text(
+                          'Ask crop sprays, fertilizer doses & mandi rates',
+                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primaryGreen),
                 ],
               ),
             ),

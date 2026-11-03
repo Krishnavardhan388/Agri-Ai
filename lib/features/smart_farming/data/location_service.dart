@@ -57,7 +57,7 @@ class LocationService {
 
       // Reverse geocode to find District & State name
       try {
-        final placemarks = await placemarkFromCoordinates(
+        final placemarks = await Geocoding().placemarkFromCoordinates(
           position.latitude,
           position.longitude,
         );

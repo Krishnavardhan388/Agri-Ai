@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../voice_assistant/presentation/agri_mitra_voice_screen.dart';
 import 'tabs/farmer_crop_doctor_tab.dart';
 import 'tabs/farmer_home_tab.dart';
 import 'tabs/farmer_marketplace_tab.dart';
@@ -33,6 +34,22 @@ class _FarmerMainScreenState extends State<FarmerMainScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: tabs,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'agri_mitra_voice_fab',
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.mic_rounded, size: 22),
+        label: const Text(
+          'AGRI MITRA',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AgriMitraVoiceScreen()),
+          );
+        },
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
