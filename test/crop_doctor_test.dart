@@ -65,3 +65,4 @@ void main() {
     expect(history.first.healthScore, 65);
   });
 }
+

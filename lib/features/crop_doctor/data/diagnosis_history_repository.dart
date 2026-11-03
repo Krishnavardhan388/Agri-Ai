@@ -87,3 +87,4 @@ class DiagnosisHistoryRepository {
     await _prefs.setStringList(_keyHistory, encoded);
   }
 }
+

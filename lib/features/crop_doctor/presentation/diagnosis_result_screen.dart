@@ -412,3 +412,4 @@ class _TreatmentList extends StatelessWidget {
     );
   }
 }
+

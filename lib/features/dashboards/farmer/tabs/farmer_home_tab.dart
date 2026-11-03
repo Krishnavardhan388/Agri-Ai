@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/agri_card.dart';
+import '../../../mandi_prices/domain/mandi_crop_model.dart';
+import '../../../mandi_prices/presentation/mandi_market_screen.dart';
+import '../../../smart_farming/state/smart_farming_provider.dart';
 
-class FarmerHomeTab extends StatelessWidget {
+class FarmerHomeTab extends ConsumerWidget {
   final VoidCallback onNavigateToDoctor;
   final VoidCallback onNavigateToMarket;
 
@@ -13,7 +17,11 @@ class FarmerHomeTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final smartState = ref.watch(smartFarmingProvider);
+    final weather = smartState.weather;
+    final location = smartState.location;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -28,21 +36,38 @@ class FarmerHomeTab extends StatelessWidget {
               child: const Icon(Icons.eco_rounded, color: AppColors.primaryGreen, size: 22),
             ),
             const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('AGRI AI Kisan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                Text('Warangal, Telangana • 31°C Sunny', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('AGRI AI Kisan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text(
+                    '${location.district}, ${location.state} • ${weather.temperature.toInt()}°C Sunny',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.my_location_rounded),
+            tooltip: 'Update GPS Location',
+            onPressed: () {
+              ref.read(smartFarmingProvider.notifier).refreshLocationAndWeather();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Updating weather & Mandi prices for current GPS position')),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new notifications today')),
+                const SnackBar(content: Text('No new alerts today')),
               );
             },
           ),
@@ -119,9 +144,18 @@ class FarmerHomeTab extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Live Weather & Farming Advisory
-            const Text(
-              'Weather Advisory',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Weather & Farming Advisory',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                Text(
+                  '${weather.temperature.toInt()}°C • Clear',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             AgriCard(
@@ -137,13 +171,13 @@ class FarmerHomeTab extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                '31°C • Clear Sky',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              Text(
+                                '${weather.temperature.toStringAsFixed(1)}°C • ${weather.condition}',
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                               ),
                               Text(
-                                'Humidity: 62% • Rain Probability: 10%',
-                                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                'Humidity: ${weather.humidity}% • Rain: ${weather.rainProbability}%',
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                               ),
                             ],
                           ),
@@ -152,13 +186,13 @@ class FarmerHomeTab extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.greenSurface,
+                          color: weather.isSprayingRecommended ? AppColors.greenSurface : AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
-                          'Ideal for Spraying',
+                        child: Text(
+                          weather.isSprayingRecommended ? 'Ideal for Spraying' : 'High Wind Risk',
                           style: TextStyle(
-                            color: AppColors.primaryDark,
+                            color: weather.isSprayingRecommended ? AppColors.primaryDark : AppColors.alertRed,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -166,15 +200,16 @@ class FarmerHomeTab extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const Divider(height: 24),
+                  const Divider(height: 22),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.lightbulb_outline_rounded, color: AppColors.primaryGreen, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Optimal window for fertilizer application before expected weekend showers.',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          weather.advisoryDescription,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
                         ),
                       ),
                     ],
@@ -188,39 +223,27 @@ class FarmerHomeTab extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Daily Mandi Rates (Warangal)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                Text(
+                  'Daily Mandi Rates (${location.district})',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 TextButton(
-                  onPressed: onNavigateToMarket,
-                  child: const Text('View All', style: TextStyle(color: AppColors.primaryGreen)),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MandiMarketScreen()),
+                    );
+                  },
+                  child: const Text('View All Mandis', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-            _MandiItemTile(
-              cropName: 'Cotton (Kapas)',
-              variety: 'Medium Staple',
-              mandiPrice: '₹7,250 / Quintal',
-              trend: '+₹150',
-              isUp: true,
-            ),
-            const SizedBox(height: 8),
-            _MandiItemTile(
-              cropName: 'Paddy (Dhan)',
-              variety: 'BPT 5204 (Sona Masoori)',
-              mandiPrice: '₹2,380 / Quintal',
-              trend: '+₹40',
-              isUp: true,
-            ),
-            const SizedBox(height: 8),
-            _MandiItemTile(
-              cropName: 'Red Chilli (Mirchi)',
-              variety: 'Teja Variety',
-              mandiPrice: '₹18,500 / Quintal',
-              trend: '-₹200',
-              isUp: false,
-            ),
+
+            ...smartState.mandiCrops.take(3).map((item) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: _MandiHomeTile(item: item),
+              );
+            }),
           ],
         ),
       ),
@@ -228,20 +251,10 @@ class FarmerHomeTab extends StatelessWidget {
   }
 }
 
-class _MandiItemTile extends StatelessWidget {
-  final String cropName;
-  final String variety;
-  final String mandiPrice;
-  final String trend;
-  final bool isUp;
+class _MandiHomeTile extends StatelessWidget {
+  final MandiCropItem item;
 
-  const _MandiItemTile({
-    required this.cropName,
-    required this.variety,
-    required this.mandiPrice,
-    required this.trend,
-    required this.isUp,
-  });
+  const _MandiHomeTile({required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -253,27 +266,27 @@ class _MandiItemTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(cropName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text(variety, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              Text(item.cropName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text('${item.variety} • ${item.marketName}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(mandiPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)),
+              Text(item.formattedModalPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)),
               Row(
                 children: [
                   Icon(
-                    isUp ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
-                    color: isUp ? AppColors.primaryGreen : AppColors.alertRed,
-                    size: 20,
+                    item.isPriceUp ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
+                    color: item.isPriceUp ? AppColors.primaryGreen : AppColors.alertRed,
+                    size: 18,
                   ),
                   Text(
-                    trend,
+                    '${item.isPriceUp ? '+' : '-'}₹${item.priceChange.toInt()}',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: isUp ? AppColors.primaryGreen : AppColors.alertRed,
+                      color: item.isPriceUp ? AppColors.primaryGreen : AppColors.alertRed,
                     ),
                   ),
                 ],
@@ -285,4 +298,3 @@ class _MandiItemTile extends StatelessWidget {
     );
   }
 }
-

@@ -67,22 +67,31 @@ This checklist tracks our end-to-end development journey from setup to productio
 
 ---
 
-## ⛅ Phase 4: Smart Farming & GPS Mandi Market Intelligence (NEXT UP)
-- [ ] Real-time GPS location retrieval using `geolocator` with runtime permission handler.
-- [ ] Live weather forecasting service (temperature, humidity, rain probability, optimal spraying window).
-- [ ] Smart farming weather advisory alerts for current seasonal crops.
-- [ ] Mandi Price Intelligence Engine (Agmarknet Indian market commodity prices).
-- [ ] Price comparison across nearby agricultural markets with distance calculation.
-- [ ] Verification tests & static analysis.
+## ⛅ Phase 4: Smart Farming & GPS Mandi Market Intelligence ✅ COMPLETED
+- [x] Integrated `geolocator` and `geocoding` packages.
+- [x] Added `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` in `AndroidManifest.xml`.
+- [x] Built `LocationService` with reverse-geocoding into district and graceful offline fallback.
+- [x] Built `WeatherService` with temperature, rain chance, humidity, and "Ideal Spraying Window" intelligence.
+- [x] Built `MandiService` with Agmarknet Indian commodity pricing (Cotton, Paddy, Chilli, Maize, Turmeric, Tomato, Onion).
+- [x] Built `MandiMarketScreen` featuring:
+  - Real-time search and category filtering chips (Cash Crops, Cereals, Spices, Vegetables).
+  - Nearest Mandi APMC yard indicator with GPS distance calculation.
+  - Toggle between "Price per Quintal (100 kg)" and "Price per kg".
+  - Price fluctuation badges (+₹150 $\uparrow$ / -₹200 $\downarrow$).
+  - Multi-mandi comparison bottom sheet highlighting the highest profit market.
+- [x] Wired live weather, location, and Mandi cards to `FarmerHomeTab`.
+- [x] Verified with automated unit tests (`flutter test` -> 11/11 passed).
+- [x] Verified zero issues (`flutter analyze` -> No issues found).
 
 ---
 
-## 🛒 Phase 5: Farmer Marketplace & Razorpay Payments
-- [ ] Farmer product listing screen: photo, category, price per kg, available stock.
-- [ ] Customer catalog: search, category chips, stock check.
-- [ ] Shopping cart with real-time bill calculation.
+## 🛒 Phase 5: Farmer Marketplace & Razorpay Payments (NEXT UP)
+- [ ] Farmer crop listing screen: upload crop photo, select category, set price per kg, enter available stock (kg).
+- [ ] Customer catalog: search, category chips, stock check, real-time cart counter.
+- [ ] Customer cart with dynamic subtotal, delivery charges, direct-farm discount, and net payable.
 - [ ] Razorpay payment gateway integration (UPI, Debit/Credit cards, NetBanking).
-- [ ] Firestore order collection lifecycle (`Pending` -> `Accepted` -> `In Transit` -> `Delivered`).
+- [ ] Cloud Firestore order creation lifecycle: `Pending` ➔ `Accepted` ➔ `In Transit` ➔ `Delivered`.
+- [ ] Verification tests & static analysis.
 
 ---
 
