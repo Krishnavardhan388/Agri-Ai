@@ -59,3 +59,4 @@ void main() {
     expect(notifier.state.user?.role, UserRole.customer);
   });
 }
+

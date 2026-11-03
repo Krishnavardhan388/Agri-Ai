@@ -1,13 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/agri_card.dart';
 import '../../../../core/widgets/custom_button.dart';
+import '../../../auth/state/auth_provider.dart';
+import '../../../crop_doctor/domain/crop_diagnosis_result.dart';
+import '../../../crop_doctor/presentation/camera_scan_screen.dart';
+import '../../../crop_doctor/presentation/diagnosis_result_screen.dart';
+import '../../../crop_doctor/state/crop_doctor_provider.dart';
 
-class FarmerCropDoctorTab extends StatelessWidget {
+class FarmerCropDoctorTab extends ConsumerWidget {
   const FarmerCropDoctorTab({super.key});
 
+  Color _getSeverityColor(int score) {
+    if (score >= 80) return AppColors.primaryGreen;
+    if (score >= 55) return AppColors.earthAmber;
+    return AppColors.alertRed;
+  }
+
+  Future<void> _scan(BuildContext context, WidgetRef ref, ImageSource source) async {
+    final auth = ref.read(authProvider);
+    final uid = auth.user?.uid ?? 'guest-farmer';
+
+    final result = await ref.read(cropDoctorProvider.notifier).pickAndAnalyze(
+          source: source,
+          userId: uid,
+        );
+
+    if (result != null && context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DiagnosisResultScreen(result: result),
+        ),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cropDoctorState = ref.watch(cropDoctorProvider);
+    final history = cropDoctorState.history;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -21,9 +55,9 @@ class FarmerCropDoctorTab extends StatelessWidget {
                 builder: (ctx) => AlertDialog(
                   title: const Text('How AI Doctor Works'),
                   content: const Text(
-                    '1. Take a clear, well-lit photo of an affected plant leaf.\n'
-                    '2. Our Gemini Vision AI detects the crop, disease, or deficiency in seconds.\n'
-                    '3. Receive step-by-step organic and chemical treatment instructions.',
+                    '1. Take a clear photo of an affected plant leaf.\n'
+                    '2. Our Gemini Vision AI identifies crop disease or deficiency.\n'
+                    '3. Receive step-by-step organic remedies and chemical dosage guidelines.',
                   ),
                   actions: [
                     TextButton(
@@ -80,14 +114,15 @@ class FarmerCropDoctorTab extends StatelessWidget {
                     children: [
                       Expanded(
                         child: CustomButton(
-                          text: 'Take Photo',
+                          text: 'Scan with Camera',
                           icon: Icons.camera_alt_rounded,
                           backgroundColor: Colors.white,
                           textColor: AppColors.primaryGreen,
+                          isLoading: cropDoctorState.isAnalyzing,
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Camera scanner will be fully connected in Phase 3 with Gemini AI'),
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CameraScanScreen(),
                               ),
                             );
                           },
@@ -96,17 +131,12 @@ class FarmerCropDoctorTab extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: CustomButton(
-                          text: 'Gallery',
+                          text: 'Upload Gallery',
                           icon: Icons.photo_library_rounded,
                           backgroundColor: Colors.white.withValues(alpha: 0.25),
                           textColor: Colors.white,
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Gallery photo upload will be connected in Phase 3'),
-                              ),
-                            );
-                          },
+                          isLoading: cropDoctorState.isAnalyzing,
+                          onPressed: () => _scan(context, ref, ImageSource.gallery),
                         ),
                       ),
                     ],
@@ -121,7 +151,7 @@ class FarmerCropDoctorTab extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Recent Diagnosis History',
+                  'Diagnosis History',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -129,14 +159,14 @@ class FarmerCropDoctorTab extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.greenSurface,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
-                    '3 Reports',
-                    style: TextStyle(
+                  child: Text(
+                    '${history.length} Reports',
+                    style: const TextStyle(
                       color: AppColors.primaryDark,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -147,40 +177,58 @@ class FarmerCropDoctorTab extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Mock Scan 1 (Tomato Early Blight)
-            _DiagnosisHistoryCard(
-              crop: 'Tomato',
-              disease: 'Early Blight (Alternaria solani)',
-              healthScore: 68,
-              severity: 'Moderate',
-              severityColor: AppColors.earthAmber,
-              date: 'Today, 10:30 AM',
-              treatment: 'Spray Mancozeb (2g/L) or neem oil extract.',
-            ),
-            const SizedBox(height: 12),
-
-            // Mock Scan 2 (Rice Brown Spot)
-            _DiagnosisHistoryCard(
-              crop: 'Paddy / Rice',
-              disease: 'Brown Spot Fungus',
-              healthScore: 52,
-              severity: 'High Severity',
-              severityColor: AppColors.alertRed,
-              date: 'Yesterday, 04:15 PM',
-              treatment: 'Apply Tricyclazole 75% WP. Ensure adequate potassium in soil.',
-            ),
-            const SizedBox(height: 12),
-
-            // Mock Scan 3 (Healthy Cotton)
-            _DiagnosisHistoryCard(
-              crop: 'Cotton',
-              disease: 'Healthy Leaf • No Disease Detected',
-              healthScore: 96,
-              severity: 'Healthy',
-              severityColor: AppColors.primaryGreen,
-              date: '28 Oct 2026',
-              treatment: 'Continue standard irrigation and balanced NPK fertilizer.',
-            ),
+            // Fallback sample reports if history is currently empty
+            if (history.isEmpty)
+              Column(
+                children: [
+                  _DiagnosisCard(
+                    result: CropDiagnosisResult(
+                      id: 'demo-1',
+                      cropName: 'Tomato',
+                      diseaseName: 'Early Blight (Alternaria solani)',
+                      scientificName: 'Alternaria solani',
+                      healthScore: 68,
+                      severity: 'Moderate',
+                      confidence: 0.93,
+                      symptoms: ['Concentric bullseye rings on leaves', 'Yellow halo'],
+                      organicTreatments: ['Spray cold-pressed Neem Oil (5ml/L)'],
+                      chemicalTreatments: ['Mancozeb 75% WP @ 2.5g/L'],
+                      preventiveMeasures: ['Avoid overhead irrigation'],
+                      diagnosedAt: DateTime.now().subtract(const Duration(hours: 2)),
+                    ),
+                    color: AppColors.earthAmber,
+                  ),
+                  const SizedBox(height: 12),
+                  _DiagnosisCard(
+                    result: CropDiagnosisResult(
+                      id: 'demo-2',
+                      cropName: 'Cotton',
+                      diseaseName: 'Healthy Leaf • Vigorous Growth',
+                      scientificName: 'Gossypium hirsutum',
+                      healthScore: 96,
+                      severity: 'Healthy',
+                      confidence: 0.98,
+                      symptoms: ['Clean foliage with no pest markings'],
+                      organicTreatments: ['Panchagavya organic booster spray'],
+                      chemicalTreatments: ['No chemical sprays required'],
+                      preventiveMeasures: ['Regular weekly scouting'],
+                      diagnosedAt: DateTime.now().subtract(const Duration(days: 2)),
+                    ),
+                    color: AppColors.primaryGreen,
+                  ),
+                ],
+              )
+            else
+              ...history.map((result) {
+                final color = _getSeverityColor(result.healthScore);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: _DiagnosisCard(
+                    result: result,
+                    color: color,
+                  ),
+                );
+              }),
           ],
         ),
       ),
@@ -188,28 +236,22 @@ class FarmerCropDoctorTab extends StatelessWidget {
   }
 }
 
-class _DiagnosisHistoryCard extends StatelessWidget {
-  final String crop;
-  final String disease;
-  final int healthScore;
-  final String severity;
-  final Color severityColor;
-  final String date;
-  final String treatment;
+class _DiagnosisCard extends StatelessWidget {
+  final CropDiagnosisResult result;
+  final Color color;
 
-  const _DiagnosisHistoryCard({
-    required this.crop,
-    required this.disease,
-    required this.healthScore,
-    required this.severity,
-    required this.severityColor,
-    required this.date,
-    required this.treatment,
-  });
+  const _DiagnosisCard({required this.result, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return AgriCard(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DiagnosisResultScreen(result: result),
+          ),
+        );
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -221,17 +263,20 @@ class _DiagnosisHistoryCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: severityColor.withValues(alpha: 0.1),
+                      color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.eco_rounded, color: severityColor, size: 20),
+                    child: Icon(Icons.eco_rounded, color: color, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(crop, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      Text(date, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                      Text(result.cropName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(
+                        '${result.diagnosedAt.day}/${result.diagnosedAt.month}/${result.diagnosedAt.year}',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                      ),
                     ],
                   ),
                 ],
@@ -239,13 +284,13 @@ class _DiagnosisHistoryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: severityColor.withValues(alpha: 0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  severity,
+                  result.severity,
                   style: TextStyle(
-                    color: severityColor,
+                    color: color,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -255,7 +300,7 @@ class _DiagnosisHistoryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            disease,
+            result.diseaseName,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -265,10 +310,10 @@ class _DiagnosisHistoryCard extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Text('Health Score: ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              const Text('Plant Health Score: ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
               Text(
-                '$healthScore / 100',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: severityColor),
+                '${result.healthScore} / 100',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
               ),
             ],
           ),
@@ -280,10 +325,15 @@ class _DiagnosisHistoryCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Recommended: $treatment',
+                  result.organicTreatments.isNotEmpty
+                      ? 'Action: ${result.organicTreatments.first}'
+                      : 'Tap to view full treatment report',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ),
+              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textMuted),
             ],
           ),
         ],
@@ -291,4 +341,3 @@ class _DiagnosisHistoryCard extends StatelessWidget {
     );
   }
 }
-

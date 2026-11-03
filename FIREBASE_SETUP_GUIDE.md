@@ -62,3 +62,4 @@ This guide explains how to connect your live Firebase project to AGRI AI for rea
 AGRI AI includes an automatic **Hybrid Auth Layer**:
 - **With `google-services.json`**: Connects to live Firebase Phone Auth and Cloud Firestore.
 - **Without `google-services.json` (Local Mode)**: Automatically runs in offline developer mode so all screens, OTP modals, role switching, and dashboards function smoothly during development.
+
