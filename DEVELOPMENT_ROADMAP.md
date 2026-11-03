@@ -102,17 +102,34 @@ This checklist tracks our end-to-end development journey from setup to productio
 
 ---
 
-## 🚚 Phase 6: Delivery Partner Module & Real-Time Tracking (NEXT UP)
-- [ ] Connect delivery partner dashboard with live available pickup orders from farmers.
-- [ ] Implement trip acceptance and route preview with pickup and drop addresses.
-- [ ] Google Maps GPS route navigation launch integration.
-- [ ] Doorstep OTP verification modal: partner inputs customer's 4-digit OTP to complete trip handover.
-- [ ] Delivery earnings ledger with wallet payout tracking.
-- [ ] Verification tests & static analysis.
+## 🚚 Phase 6: Delivery Partner Module & Real-Time Tracking ✅ COMPLETED
+- [x] Integrated `url_launcher` for external Google Maps route intents and direct phone dialer.
+- [x] Added `queries` in `AndroidManifest.xml` for `https`, `geo`, and `tel` intent schemes.
+- [x] Implemented `DeliveryTask` domain model (`id`, `farmAddress`, `customerAddress`, `tripPayout`, `requiredOtp`, `status`).
+- [x] Implemented `DeliveryWalletRecord` for tracking transaction credits and withdrawal debits.
+- [x] Built `MapNavigationService` supporting turnkey Google Maps turn-by-turn navigation and direct phone calling.
+- [x] Built `DeliveryRepository` managing active trips, nearby available farm pickups, and persistent wallet transactions.
+- [x] Built `DeliveryNotifier` with Riverpod `StateNotifierProvider` managing online status, trip lifecycle, and wallet payouts.
+- [x] Upgraded `DeliveryTasksTab` featuring:
+  - Online/Offline toggle with interactive availability status.
+  - Active Trip Card with stage indicators ("PICKUP PENDING" ➔ "IN TRANSIT").
+  - One-tap "Mark Harvest Picked Up from Farm".
+  - Turn-by-turn Google Maps navigation to Farm & Customer.
+  - Direct calling buttons for Farmer and Customer.
+  - Doorstep 4-digit OTP handover verification dialog with instant wallet credit.
+  - Available Farm Orders list with "Accept Trip" action.
+- [x] Upgraded `DeliveryEarningsTab` featuring:
+  - Dynamic wallet balance banner and today's earnings sum.
+  - Trips completed counter and weekly rating.
+  - Interactive "Withdraw to Bank / UPI" bottom sheet.
+  - Live ledger history showing credits and debits.
+- [x] Upgraded `DeliveryProfileTab` with driver vehicle registration, RC/insurance specs, linked bank account, and 24x7 helpline.
+- [x] Verified with automated unit tests (`test/delivery_test.dart` -> 19/19 tests passed).
+- [x] Verified zero issues (`flutter analyze` -> No issues found).
 
 ---
 
-## 🎙️ Phase 7: AGRI MITRA Voice Assistant & Production Release
+## 🎙️ Phase 7: AGRI MITRA Voice Assistant & Production Release (NEXT UP)
 - [ ] Multilingual voice assistant (English, Telugu, Hindi).
 - [ ] Speech-to-text and Text-to-speech for farmers with limited literacy.
 - [ ] Read AI diagnosis results aloud and answer agricultural queries.
