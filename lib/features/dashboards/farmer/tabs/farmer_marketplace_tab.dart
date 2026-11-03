@@ -246,3 +246,4 @@ class _VerticalDivider extends StatelessWidget {
     );
   }
 }
+

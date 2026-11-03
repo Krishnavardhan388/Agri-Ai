@@ -9,6 +9,7 @@ import '../../dashboards/delivery/delivery_main_screen.dart';
 import '../../dashboards/farmer/farmer_main_screen.dart';
 import '../domain/user_role.dart';
 import '../state/auth_provider.dart';
+import 'otp_verification_sheet.dart';
 import 'register_screen.dart';
 import 'role_selection_screen.dart';
 
@@ -25,6 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneController = TextEditingController(text: '9876543210');
   final _passwordController = TextEditingController(text: '123456');
   final _formKey = GlobalKey<FormState>();
+  bool _useOtpLogin = true;
 
   @override
   void dispose() {
@@ -53,10 +55,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Future<void> _handleLogin() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      final success = await ref.read(authProvider.notifier).login(
-            phone: _phoneController.text,
+  Future<void> _handlePrimaryAction() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final phone = _phoneController.text.trim();
+
+    if (_useOtpLogin) {
+      // Send OTP flow
+      final sent = await ref.read(authProvider.notifier).sendOtp(phone);
+      if (sent && mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) => OtpVerificationSheet(
+            phoneNumber: phone,
+            onVerificationSuccess: () {
+              final currentRole = ref.read(authProvider).selectedRole;
+              _navigateToDashboard(currentRole);
+            },
+          ),
+        );
+      }
+    } else {
+      // Password / PIN quick login flow
+      final success = await ref.read(authProvider.notifier).quickLogin(
+            phone: phone,
             password: _passwordController.text,
           );
 
@@ -99,7 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Role Badge Banner
+                // Active Role Pill
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
@@ -113,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Icon(activeRole.icon, size: 18, color: AppColors.primaryGreen),
                       const SizedBox(width: 8),
                       Text(
-                        'Logging in as ${activeRole.displayName}',
+                        'Role: ${activeRole.displayName}',
                         style: const TextStyle(
                           color: AppColors.primaryDark,
                           fontSize: 12,
@@ -138,9 +162,83 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   AppStrings.loginSubtitle,
                   style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
 
-                // Error Banner if any
+                // Login Mode Switcher Tabs
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _useOtpLogin = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _useOtpLogin ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _useOtpLogin
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Mobile OTP (Recommended)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: _useOtpLogin ? FontWeight.bold : FontWeight.w500,
+                                  color: _useOtpLogin ? AppColors.primaryGreen : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _useOtpLogin = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: !_useOtpLogin ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: !_useOtpLogin
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'PIN / Password',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: !_useOtpLogin ? FontWeight.bold : FontWeight.w500,
+                                  color: !_useOtpLogin ? AppColors.primaryGreen : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Error Banner
                 if (authState.errorMessage != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 16),
@@ -170,8 +268,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 CustomTextField(
                   controller: _phoneController,
-                  label: 'Mobile Number',
-                  hint: 'Enter 10-digit mobile number',
+                  label: 'Registered Mobile Number',
+                  hint: '10-digit mobile number',
                   keyboardType: TextInputType.phone,
                   prefixIcon: Icons.phone_android_rounded,
                   validator: (value) {
@@ -181,35 +279,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-                CustomTextField(
-                  controller: _passwordController,
-                  label: 'Password / Security PIN',
-                  hint: 'Enter PIN or password',
-                  obscureText: true,
-                  prefixIcon: Icons.lock_outline_rounded,
-                  validator: (value) {
-                    if (value == null || value.length < 4) {
-                      return 'Please enter at least 4 digits';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 28),
+                if (!_useOtpLogin) ...[
+                  CustomTextField(
+                    controller: _passwordController,
+                    label: 'Security PIN / Password',
+                    hint: 'Enter your 4 or 6 digit PIN',
+                    obscureText: true,
+                    prefixIcon: Icons.lock_outline_rounded,
+                    validator: (value) {
+                      if (value == null || value.length < 4) {
+                        return 'Please enter at least 4 digits';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: CustomButton(
-                    text: 'Sign In',
+                    text: _useOtpLogin ? 'Send Verification OTP' : 'Sign In',
                     isLoading: authState.isLoading,
-                    icon: Icons.login_rounded,
-                    onPressed: _handleLogin,
+                    icon: _useOtpLogin ? Icons.sms_outlined : Icons.login_rounded,
+                    onPressed: _handlePrimaryAction,
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,

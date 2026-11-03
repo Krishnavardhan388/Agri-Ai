@@ -56,7 +56,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_termsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept terms and conditions')),
+        const SnackBar(content: Text('Please accept terms and conditions to proceed')),
       );
       return;
     }
@@ -65,6 +65,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final success = await ref.read(authProvider.notifier).register(
             name: _nameController.text,
             phone: _phoneController.text,
+            location: _locationController.text,
             role: _role,
           );
 
@@ -108,7 +109,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 // Role Picker Chips
                 const Text(
-                  'Registering as:',
+                  'Select Account Type:',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -218,7 +219,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   width: double.infinity,
                   height: 52,
                   child: CustomButton(
-                    text: 'Register & Continue',
+                    text: 'Register Account',
                     isLoading: authState.isLoading,
                     icon: Icons.how_to_reg_rounded,
                     onPressed: _handleRegister,

@@ -30,3 +30,4 @@ class AppColors {
   static const Color border = Color(0xFFE0E7E1);       // Clean outline
   static const Color divider = Color(0xFFEEEEEE);
 }
+

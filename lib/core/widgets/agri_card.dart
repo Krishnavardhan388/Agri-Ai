@@ -52,3 +52,4 @@ class AgriCard extends StatelessWidget {
     return content;
   }
 }
+

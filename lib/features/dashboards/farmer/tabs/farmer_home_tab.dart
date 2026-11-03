@@ -285,3 +285,4 @@ class _MandiItemTile extends StatelessWidget {
     );
   }
 }
+

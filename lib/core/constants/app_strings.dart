@@ -30,3 +30,4 @@ class AppStrings {
   static const String createAccount = 'Create Account';
   static const String registerSubtitle = 'Join thousands of farmers & buyers across India';
 }
+

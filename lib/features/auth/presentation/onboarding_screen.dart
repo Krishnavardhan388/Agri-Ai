@@ -240,3 +240,4 @@ class OnboardingItem {
     required this.accentColor,
   });
 }
+

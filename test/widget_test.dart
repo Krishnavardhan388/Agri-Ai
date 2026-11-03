@@ -1,14 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:agri_ai/app.dart';
 import 'package:agri_ai/core/constants/app_strings.dart';
+import 'package:agri_ai/core/services/local_storage_service.dart';
+import 'package:agri_ai/features/auth/state/auth_provider.dart';
 
 void main() {
   testWidgets('AGRI AI App boots and displays Splash Screen branding', (WidgetTester tester) async {
-    // Build our app wrapped with ProviderScope.
+    SharedPreferences.setMockInitialValues({});
+    final localStorage = await LocalStorageService.init();
+
     await tester.pumpWidget(
-      const ProviderScope(
-        child: AgriApp(),
+      ProviderScope(
+        overrides: [
+          localStorageProvider.overrideWithValue(localStorage),
+        ],
+        child: const AgriApp(),
       ),
     );
 
@@ -16,7 +24,7 @@ void main() {
     expect(find.text(AppStrings.appName), findsOneWidget);
     expect(find.text(AppStrings.appTagline), findsOneWidget);
 
-    // Fast-forward past the splash timer (2.4s) into the Onboarding screen.
+    // Fast-forward past the splash timer into the Onboarding screen.
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 

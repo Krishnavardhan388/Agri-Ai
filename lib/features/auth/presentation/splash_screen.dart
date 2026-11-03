@@ -1,17 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../dashboards/customer/customer_main_screen.dart';
+import '../../dashboards/delivery/delivery_main_screen.dart';
+import '../../dashboards/farmer/farmer_main_screen.dart';
+import '../domain/user_role.dart';
+import '../state/auth_provider.dart';
 import 'onboarding_screen.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -39,7 +45,26 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     _timer = Timer(const Duration(milliseconds: 2400), () {
-      if (mounted) {
+      if (!mounted) return;
+
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        Widget destination;
+        switch (authState.selectedRole) {
+          case UserRole.farmer:
+            destination = const FarmerMainScreen();
+            break;
+          case UserRole.customer:
+            destination = const CustomerMainScreen();
+            break;
+          case UserRole.deliveryPartner:
+            destination = const DeliveryMainScreen();
+            break;
+        }
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => destination),
+        );
+      } else {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         );

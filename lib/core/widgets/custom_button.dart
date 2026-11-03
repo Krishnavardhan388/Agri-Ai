@@ -79,3 +79,4 @@ class CustomButton extends StatelessWidget {
     return Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w600));
   }
 }
+

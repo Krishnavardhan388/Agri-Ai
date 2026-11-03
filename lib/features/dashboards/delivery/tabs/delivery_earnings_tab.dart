@@ -117,3 +117,4 @@ class _EarningRow extends StatelessWidget {
     );
   }
 }
+

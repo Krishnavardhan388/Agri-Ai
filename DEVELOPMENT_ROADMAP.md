@@ -34,26 +34,33 @@ This checklist tracks our end-to-end development journey from setup to productio
 
 ---
 
-## 🔒 Phase 2: Firebase Integration & Role-Based Authentication (NEXT UP)
-- [ ] Create Firebase Project & register Android package (`com.agriai.app.agri_ai`).
-- [ ] Add `google-services.json` to `android/app/`.
-- [ ] Implement Firebase Phone Authentication (with real SMS OTP).
-- [ ] Cloud Firestore user profile synchronization (`users` collection with role tagging).
-- [ ] Role-based route guard: auto-redirect on app restart based on active role.
-- [ ] Verification tests.
+## 🔒 Phase 2: Firebase Integration & Role-Based Authentication ✅ COMPLETED
+- [x] Integrated `firebase_core`, `firebase_auth`, and `cloud_firestore` with Flutter 3.47.
+- [x] Configured safe `FirebaseService.initialize()` with graceful local fallback.
+- [x] Implemented typed `UserModel` with role assignment (`farmer`, `customer`, `deliveryPartner`).
+- [x] Implemented `FirestoreUserService` for Cloud Firestore profile synchronization.
+- [x] Implemented `FirebaseAuthRepository` supporting real SMS Phone Auth & fast local dev simulation.
+- [x] Built interactive 6-digit `OtpVerificationSheet` with digit jumping and resend SMS.
+- [x] Implemented persistent session login using `LocalStorageService` (`SharedPreferences`).
+- [x] Implemented auto-redirect on app reboot (restores user session directly to their dashboard).
+- [x] Created [FIREBASE_SETUP_GUIDE.md](file:///d:/antigravity/ai%20crop%20disease%20detection%20system/FIREBASE_SETUP_GUIDE.md) explaining how to obtain `google-services.json`.
+- [x] Verified with unit & widget tests (`flutter test` -> 4/4 passed).
+- [x] Verified zero issues (`flutter analyze` -> No issues found).
 
 ---
 
-## 🌿 Phase 3: AI Crop Doctor Module
-- [ ] Camera & Gallery image picker integration with Android permissions.
-- [ ] Crop disease image pre-processing (compression & aspect ratio).
-- [ ] Google Gemini 1.5 Vision API integration for crop pathology.
-- [ ] Diagnosis Result screen:
-  - Disease name & scientific pathogen.
-  - Confidence rating & plant health score (0-100).
-  - Organic and chemical treatment recommendations.
-  - Preventive farming advisories.
-- [ ] Cloud Firestore diagnosis history logs with thumbnails.
+## 🌿 Phase 3: AI Crop Doctor Module (NEXT UP)
+- [ ] Add `image_picker` and `camera` dependencies with Android camera/gallery permissions.
+- [ ] Crop disease image pre-processing (compression & aspect ratio formatting).
+- [ ] Google Gemini 1.5 Flash Vision API integration for crop pathology:
+  - Identify crop name (Paddy, Cotton, Tomato, Wheat, Chilli, etc.).
+  - Detect disease / pest / nutrient deficiency.
+  - Calculate plant health score (0-100) and severity confidence.
+  - Generate organic and chemical treatment instructions.
+- [ ] Interactive Camera Scanner Screen with live camera viewfinder overlay.
+- [ ] Rich Diagnosis Result Screen with treatment tabs (Organic Remedies, Chemical Sprays, Prevention).
+- [ ] Diagnosis history tracking stored with Cloud Firestore sync.
+- [ ] Verification tests & static analysis.
 
 ---
 

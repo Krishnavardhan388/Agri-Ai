@@ -291,3 +291,4 @@ class _DiagnosisHistoryCard extends StatelessWidget {
     );
   }
 }
+

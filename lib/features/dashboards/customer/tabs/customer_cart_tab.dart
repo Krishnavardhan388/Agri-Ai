@@ -235,3 +235,4 @@ class _PriceRow extends StatelessWidget {
     );
   }
 }
+

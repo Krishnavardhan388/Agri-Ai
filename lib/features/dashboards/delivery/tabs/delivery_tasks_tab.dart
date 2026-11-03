@@ -225,3 +225,4 @@ class _LocationRow extends StatelessWidget {
     );
   }
 }
+
