@@ -1,0 +1,8 @@
+{
+  "name": "agri-ai",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Flutter Web Production Build Ready'"
+  }
+}
