@@ -1,37 +1,291 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/agri_card.dart';
+import '../../domain/admin_analytics_summary.dart';
+import '../../state/admin_provider.dart';
 
-class AdminOverviewTab extends StatelessWidget {
+class AdminOverviewTab extends ConsumerStatefulWidget {
   const AdminOverviewTab({super.key});
 
   @override
+  ConsumerState<AdminOverviewTab> createState() => _AdminOverviewTabState();
+}
+
+class _AdminOverviewTabState extends ConsumerState<AdminOverviewTab> {
+  int? _hoveredBarIndex;
+
+  void _showBroadcastAlertDialog(BuildContext context) {
+    String selectedDistrict = 'Warangal District';
+    String selectedCrop = 'Cotton';
+    final advisoryController = TextEditingController(
+      text: 'Early symptoms of Pink Bollworm identified. Apply recommended Neem-based organic spray or Chlorpyrifos 20% EC within 48 hours.',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100)),
+              SizedBox(width: 10),
+              Text('Broadcast Outbreak Alert', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This alert will be broadcast directly via push notification and AGRI MITRA Voice Assistant to all registered farmers in the target district.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text('Target District', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedDistrict,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Warangal District', child: Text('Warangal District (Telangana)')),
+                      DropdownMenuItem(value: 'Karimnagar District', child: Text('Karimnagar District (Telangana)')),
+                      DropdownMenuItem(value: 'Khammam District', child: Text('Khammam District (Telangana)')),
+                      DropdownMenuItem(value: 'Adilabad District', child: Text('Adilabad District (Telangana)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedDistrict = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Affected Crop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedCrop,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Cotton', child: Text('Cotton (Kapas)')),
+                      DropdownMenuItem(value: 'Tomato', child: Text('Tomato (Tamata)')),
+                      DropdownMenuItem(value: 'Paddy / Rice', child: Text('Paddy / Rice (Vari)')),
+                      DropdownMenuItem(value: 'Chilli', child: Text('Red Chilli (Mirchi)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedCrop = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Advisory Message', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: advisoryController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                final success = await ref.read(adminProvider.notifier).broadcastOutbreakAlert(
+                      district: selectedDistrict,
+                      crop: selectedCrop,
+                      advisory: advisoryController.text,
+                    );
+                if (context.mounted && success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('📢 Outbreak advisory dispatched to 680 farmers in $selectedDistrict!'),
+                      backgroundColor: const Color(0xFF2E7D32),
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.send_rounded, size: 16),
+              label: const Text('Broadcast Alert'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE65100),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExportReportDialog(BuildContext context) {
+    final report = ref.read(adminProvider.notifier).getExportAuditSummary();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.assessment_rounded, color: AppColors.primaryGreen),
+            SizedBox(width: 10),
+            Text('Platform Executive Audit Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: SizedBox(
+          width: 580,
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: SelectableText(
+                report,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: AppColors.textPrimary,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          OutlinedButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: report));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Report copied to clipboard!')),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('Copy Text'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final adminState = ref.watch(adminProvider);
+    final analytics = adminState.analytics;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome Banner
+          // Welcome Banner & Quick Action Buttons
           _buildWelcomeBanner(context),
           const SizedBox(height: 24),
 
-          // Key Metrics Grid
-          const Text(
-            'Platform Vital Statistics',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          // Header with Timeframe Filter Chips
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Executive Key Performance Indicators',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Real-time metrics aggregated across Telangana APMC regions and customer orders.',
+                      style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              _buildTimeframeFilter(adminState.timeframe),
+            ],
           ),
           const SizedBox(height: 14),
-          _buildKpiGrid(context),
-          const SizedBox(height: 28),
 
-          // Platform Activity Summary
+          // Key Metrics Grid
+          _buildKpiGrid(context, analytics),
+          const SizedBox(height: 24),
+
+          // Revenue Trend Chart & Disease Outbreak Breakdown
+          _buildChartsRow(context, analytics),
+          const SizedBox(height: 24),
+
+          // Live Operations Activity Feed
           _buildPlatformActivityRow(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTimeframeFilter(AdminTimeframe selectedTimeframe) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: AdminTimeframe.values.map((timeframe) {
+          final isSelected = timeframe == selectedTimeframe;
+          return InkWell(
+            onTap: () => ref.read(adminProvider.notifier).setTimeframe(timeframe),
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primaryGreen : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                timeframe.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -55,105 +309,143 @@ class AdminOverviewTab extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    '🌾 REGIONAL APMC & AGRI-TECH COMMAND',
-                    style: TextStyle(
-                      color: Color(0xFFA5D6A7),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        '🌾 REGIONAL APMC & AGRI-TECH COMMAND',
+                        style: TextStyle(
+                          color: Color(0xFFA5D6A7),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Welcome to AGRI AI Operations Console',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Monitor real-time crop disease detections, verify organic farmers, track mandi price shifts, and oversee doorstep dispatch operations.',
+                      style: TextStyle(
+                        color: Color(0xFFE8F5E9),
+                        fontSize: 13.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Welcome to AGRI AI Operations Console',
-                  style: TextStyle(
+              ),
+              if (MediaQuery.of(context).size.width >= 800) ...[
+                const SizedBox(width: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.analytics_rounded,
                     color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Monitor real-time crop disease detections, verify organic farmers, track mandi price shifts, and oversee doorstep dispatch operations.',
-                  style: TextStyle(
-                    color: Color(0xFFE8F5E9),
-                    fontSize: 13.5,
-                    height: 1.4,
+                    size: 54,
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          if (MediaQuery.of(context).size.width >= 800) ...[
-            const SizedBox(width: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+          const SizedBox(height: 18),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 10),
+
+          // Operational Quick Action Buttons
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _showBroadcastAlertDialog(context),
+                icon: const Icon(Icons.campaign_rounded, size: 18),
+                label: const Text('Broadcast Outbreak Alert'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFA000),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
               ),
-              child: const Icon(
-                Icons.analytics_rounded,
-                color: Colors.white,
-                size: 54,
+              OutlinedButton.icon(
+                onPressed: () => _showExportReportDialog(context),
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text('Export Executive Report'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildKpiGrid(BuildContext context) {
+  Widget _buildKpiGrid(BuildContext context, AdminAnalyticsSummary analytics) {
     final width = MediaQuery.of(context).size.width;
     final int crossAxisCount = width >= 1100 ? 4 : (width >= 650 ? 2 : 1);
 
     final kpis = [
-      const _KpiCardData(
+      _KpiCardData(
         title: 'Total Platform GMV',
-        value: '₹1,48,250',
-        subtitle: '+18.4% this week',
+        value: '₹${analytics.totalGmv >= 100000 ? '${(analytics.totalGmv / 1000).toStringAsFixed(1)}k' : analytics.totalGmv.toStringAsFixed(0)}',
+        subtitle: '+${analytics.weekOverWeekGmvGrowth}% vs last cycle',
         icon: Icons.currency_rupee_rounded,
-        iconColor: Color(0xFF2E7D32),
-        bgColor: Color(0xFFE8F5E9),
+        iconColor: const Color(0xFF2E7D32),
+        bgColor: const Color(0xFFE8F5E9),
       ),
-      const _KpiCardData(
+      _KpiCardData(
         title: 'Verified Farmers',
-        value: '1,248',
-        subtitle: '14 awaiting approval',
+        value: analytics.verifiedFarmers.toString(),
+        subtitle: '${analytics.totalOrders} total farm orders',
         icon: Icons.agriculture_rounded,
-        iconColor: Color(0xFF1565C0),
-        bgColor: Color(0xFFE3F2FD),
+        iconColor: const Color(0xFF1565C0),
+        bgColor: const Color(0xFFE3F2FD),
       ),
-      const _KpiCardData(
+      _KpiCardData(
         title: 'AI Crop Scans Done',
-        value: '5,820',
-        subtitle: '89.4% healthy diagnoses',
+        value: analytics.totalAiScans.toString(),
+        subtitle: '${analytics.healthyDiagnosisRate}% healthy crops',
         icon: Icons.biotech_rounded,
-        iconColor: Color(0xFF7B1FA2),
-        bgColor: Color(0xFFF3E5F5),
+        iconColor: const Color(0xFF7B1FA2),
+        bgColor: const Color(0xFFF3E5F5),
       ),
-      const _KpiCardData(
+      _KpiCardData(
         title: 'Active Delivery Fleet',
-        value: '164',
-        subtitle: '42 trips in-transit',
+        value: analytics.activeDeliveryFleet.toString(),
+        subtitle: '${analytics.inTransitOrders} trips in-transit',
         icon: Icons.two_wheeler_rounded,
-        iconColor: Color(0xFFE65100),
-        bgColor: Color(0xFFFFF3E0),
+        iconColor: const Color(0xFFE65100),
+        bgColor: const Color(0xFFFFF3E0),
       ),
     ];
 
@@ -228,6 +520,275 @@ class AdminOverviewTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildChartsRow(BuildContext context, AdminAnalyticsSummary analytics) {
+    final width = MediaQuery.of(context).size.width;
+    final isWidescreen = width >= 980;
+
+    final revenueCard = AgriCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Revenue & Order Volume Trend',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Daily GMV performance across regional mandis',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.greenSurface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '₹ INR Net Sales',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildRevenueBarChart(analytics.weeklyRevenue),
+        ],
+      ),
+    );
+
+    final pathologyCard = AgriCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI Crop Doctor Pathology Distribution',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Top crop diseases detected by Gemini Vision AI',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3E5F5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'AI Vision 1.5',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          ...analytics.topDiseases.map((d) => _buildDiseaseBarItem(d)),
+        ],
+      ),
+    );
+
+    if (isWidescreen) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 5, child: revenueCard),
+          const SizedBox(width: 16),
+          Expanded(flex: 4, child: pathologyCard),
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          revenueCard,
+          const SizedBox(height: 16),
+          pathologyCard,
+        ],
+      );
+    }
+  }
+
+  Widget _buildRevenueBarChart(List<DailyRevenuePoint> points) {
+    if (points.isEmpty) return const SizedBox.shrink();
+
+    final maxAmount = points.map((p) => p.amount).reduce((a, b) => a > b ? a : b);
+
+    return SizedBox(
+      height: 180,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(points.length, (index) {
+          final point = points[index];
+          final heightRatio = maxAmount > 0 ? (point.amount / maxAmount) : 0.0;
+          final isHovered = _hoveredBarIndex == index;
+
+          return Expanded(
+            child: InkWell(
+              onTap: () {
+                setState(() => _hoveredBarIndex = index);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${point.dayName}: ₹${point.amount.toStringAsFixed(0)} (${point.orderCount} orders)'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '₹${(point.amount / 1000).toStringAsFixed(0)}k',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isHovered ? AppColors.primaryGreen : AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      height: (120 * heightRatio).clamp(12.0, 120.0),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isHovered
+                              ? [const Color(0xFF81C784), const Color(0xFF2E7D32)]
+                              : [const Color(0xFFA5D6A7), const Color(0xFF4CAF50)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: isHovered
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primaryGreen.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      point.dayName,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isHovered ? FontWeight.bold : FontWeight.w600,
+                        color: isHovered ? AppColors.primaryGreen : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildDiseaseBarItem(CropDiseaseMetric d) {
+    Color riskColor;
+    switch (d.riskLevel) {
+      case 'HIGH':
+        riskColor = const Color(0xFFD32F2F);
+        break;
+      case 'MEDIUM':
+        riskColor = const Color(0xFFFFA000);
+        break;
+      default:
+        riskColor = const Color(0xFF388E3C);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${d.cropName} • ${d.diseaseName}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${d.casesCount} scans (${d.percentage.toStringAsFixed(0)}%)',
+                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: riskColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: riskColor, width: 0.8),
+                    ),
+                    child: Text(
+                      d.riskLevel,
+                      style: TextStyle(color: riskColor, fontSize: 9.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (d.percentage / 100).clamp(0.0, 1.0),
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation<Color>(riskColor),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

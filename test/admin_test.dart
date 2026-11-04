@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:agri_ai/features/admin/data/admin_analytics_repository.dart';
+import 'package:agri_ai/features/admin/domain/admin_analytics_summary.dart';
 import 'package:agri_ai/features/admin/domain/admin_section.dart';
 import 'package:agri_ai/features/admin/presentation/admin_main_screen.dart';
 import 'package:agri_ai/features/admin/state/admin_provider.dart';
@@ -25,14 +27,60 @@ void main() {
       expect(AdminSection.liveDispatch.badgeText, 'LIVE');
       expect(AdminSection.overview.badgeText, isNull);
     });
+
+    test('AdminTimeframe provides proper human-readable labels', () {
+      expect(AdminTimeframe.thisWeek.label, 'Last 7 Days');
+      expect(AdminTimeframe.thisMonth.label, 'This Month');
+      expect(AdminTimeframe.allTime.label, 'All Time');
+    });
+  });
+
+  group('Admin Analytics Repository Tests', () {
+    late AdminAnalyticsRepository repo;
+
+    setUp(() {
+      repo = AdminAnalyticsRepository();
+    });
+
+    test('Repository calculates metrics across timeframes', () async {
+      final weekSummary = await repo.getAnalyticsSummary(timeframe: AdminTimeframe.thisWeek);
+      expect(weekSummary.totalGmv, 148250.0);
+      expect(weekSummary.topDiseases.isNotEmpty, true);
+      expect(weekSummary.weeklyRevenue.length, 7);
+
+      final monthSummary = await repo.getAnalyticsSummary(timeframe: AdminTimeframe.thisMonth);
+      expect(monthSummary.totalGmv, greaterThan(weekSummary.totalGmv));
+      expect(monthSummary.totalOrders, greaterThan(weekSummary.totalOrders));
+    });
+
+    test('Repository records district broadcast alerts', () async {
+      final success = await repo.sendDistrictBroadcastAlert(
+        district: 'Warangal District',
+        crop: 'Cotton',
+        advisory: 'Spray Neem oil',
+      );
+      expect(success, true);
+      expect(repo.broadcastAlerts.length, 1);
+      expect(repo.broadcastAlerts.first['district'], 'Warangal District');
+    });
+
+    test('Repository generates formatted text export audit report', () async {
+      final summary = AdminAnalyticsSummary.mockInitial();
+      final report = repo.generateExportReport(summary);
+
+      expect(report, contains('AGRI AI — OPERATIONS EXECUTIVE AUDIT SUMMARY'));
+      expect(report, contains('₹148250.00'));
+      expect(report, contains('Cotton (Pink Bollworm'));
+    });
   });
 
   group('Admin State Provider Tests', () {
-    test('AdminNotifier initial state and tab selection', () {
+    test('AdminNotifier initial state, tab selection, and timeframe shift', () async {
       final notifier = AdminNotifier();
       expect(notifier.state.currentSection, AdminSection.overview);
       expect(notifier.state.isSidebarCollapsed, false);
-      expect(notifier.state.isLiveSyncActive, true);
+      expect(notifier.state.timeframe, AdminTimeframe.thisWeek);
+      expect(notifier.state.analytics.totalGmv, 148250.0);
 
       notifier.selectSection(AdminSection.marketplaceModeration);
       expect(notifier.state.currentSection, AdminSection.marketplaceModeration);
@@ -40,13 +88,25 @@ void main() {
       notifier.toggleSidebar();
       expect(notifier.state.isSidebarCollapsed, true);
 
-      notifier.setSidebarCollapsed(false);
-      expect(notifier.state.isSidebarCollapsed, false);
+      await notifier.setTimeframe(AdminTimeframe.thisMonth);
+      expect(notifier.state.timeframe, AdminTimeframe.thisMonth);
+      expect(notifier.state.analytics.totalGmv, greaterThan(148250.0));
+    });
+
+    test('AdminNotifier broadcast alert updates state confirmation', () async {
+      final notifier = AdminNotifier();
+      final success = await notifier.broadcastOutbreakAlert(
+        district: 'Warangal District',
+        crop: 'Cotton',
+        advisory: 'Advisory test',
+      );
+      expect(success, true);
+      expect(notifier.state.lastAlertSentMessage, contains('Warangal District'));
     });
   });
 
   group('Admin UI Widget Tests', () {
-    testWidgets('AdminMainScreen renders top bar and overview content', (tester) async {
+    testWidgets('AdminMainScreen renders top bar, KPIs, and charts', (tester) async {
       // Set desktop screen resolution
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -65,13 +125,19 @@ void main() {
       // Top bar title & branding
       expect(find.textContaining('AGRI AI Admin'), findsOneWidget);
       expect(find.text('Overview & Analytics'), findsWidgets);
-      expect(find.text('Platform Vital Statistics'), findsOneWidget);
+      expect(find.text('Executive Key Performance Indicators'), findsOneWidget);
 
       // Check KPI Cards
       expect(find.text('Total Platform GMV'), findsOneWidget);
       expect(find.text('Verified Farmers'), findsOneWidget);
       expect(find.text('AI Crop Scans Done'), findsOneWidget);
       expect(find.text('Active Delivery Fleet'), findsOneWidget);
+
+      // Check Charts and Quick Action Buttons
+      expect(find.text('Revenue & Order Volume Trend'), findsOneWidget);
+      expect(find.text('AI Crop Doctor Pathology Distribution'), findsOneWidget);
+      expect(find.text('Broadcast Outbreak Alert'), findsOneWidget);
+      expect(find.text('Export Executive Report'), findsOneWidget);
     });
 
     testWidgets('Switching section updates active view', (tester) async {
