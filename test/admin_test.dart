@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agri_ai/features/admin/data/admin_analytics_repository.dart';
+import 'package:agri_ai/features/admin/data/admin_kyc_repository.dart';
 import 'package:agri_ai/features/admin/domain/admin_analytics_summary.dart';
 import 'package:agri_ai/features/admin/domain/admin_section.dart';
+import 'package:agri_ai/features/admin/domain/kyc_application_model.dart';
 import 'package:agri_ai/features/admin/presentation/admin_main_screen.dart';
 import 'package:agri_ai/features/admin/state/admin_provider.dart';
+import 'package:agri_ai/features/admin/state/kyc_provider.dart';
 import 'package:agri_ai/features/auth/domain/user_role.dart';
 
 void main() {
@@ -32,6 +35,12 @@ void main() {
       expect(AdminTimeframe.thisWeek.label, 'Last 7 Days');
       expect(AdminTimeframe.thisMonth.label, 'This Month');
       expect(AdminTimeframe.allTime.label, 'All Time');
+    });
+
+    test('KycStatus has valid color and titles', () {
+      expect(KycStatus.pending.displayName, 'Pending Review');
+      expect(KycStatus.approved.displayName, 'Verified & Active');
+      expect(KycStatus.rejected.displayName, 'Rejected');
     });
   });
 
@@ -74,6 +83,65 @@ void main() {
     });
   });
 
+  group('Admin KYC Repository Tests', () {
+    late AdminKycRepository kycRepo;
+
+    setUp(() {
+      kycRepo = AdminKycRepository();
+    });
+
+    test('Repository returns seeded applications and counts', () async {
+      final list = await kycRepo.getApplications();
+      expect(list.length, greaterThanOrEqualTo(6));
+      expect(kycRepo.getPendingCount(), 3);
+    });
+
+    test('Repository filters by status and role', () async {
+      final pendingOnly = await kycRepo.getApplications(status: KycStatus.pending);
+      for (final app in pendingOnly) {
+        expect(app.status, KycStatus.pending);
+      }
+
+      final farmersOnly = await kycRepo.getApplications(role: UserRole.farmer);
+      for (final app in farmersOnly) {
+        expect(app.role, UserRole.farmer);
+      }
+
+      final driversOnly = await kycRepo.getApplications(role: UserRole.deliveryPartner);
+      for (final app in driversOnly) {
+        expect(app.role, UserRole.deliveryPartner);
+      }
+    });
+
+    test('Repository searches by applicant name and document number', () async {
+      final searchRamesh = await kycRepo.getApplications(searchQuery: 'Ramesh');
+      expect(searchRamesh.any((a) => a.applicantName.contains('Ramesh')), true);
+
+      final searchDoc = await kycRepo.getApplications(searchQuery: 'TS-03-EB-4421');
+      expect(searchDoc.length, 1);
+      expect(searchDoc.first.applicantName, 'Suresh Patel');
+    });
+
+    test('Repository approves and rejects application correctly', () async {
+      final approveSuccess = await kycRepo.approveApplication('KYC-FARM-101');
+      expect(approveSuccess, true);
+
+      final updatedPending = await kycRepo.getApplications(status: KycStatus.pending);
+      expect(updatedPending.any((a) => a.id == 'KYC-FARM-101'), false);
+
+      final rejectSuccess = await kycRepo.rejectApplication(
+        'KYC-DRV-202',
+        reason: 'Illegible vehicle RC photo',
+      );
+      expect(rejectSuccess, true);
+
+      final rejectedApps = await kycRepo.getApplications(status: KycStatus.rejected);
+      final rejected = rejectedApps.firstWhere((a) => a.id == 'KYC-DRV-202');
+      expect(rejected.status, KycStatus.rejected);
+      expect(rejected.rejectionReason, contains('Illegible vehicle RC photo'));
+    });
+  });
+
   group('Admin State Provider Tests', () {
     test('AdminNotifier initial state, tab selection, and timeframe shift', () async {
       final notifier = AdminNotifier();
@@ -102,6 +170,19 @@ void main() {
       );
       expect(success, true);
       expect(notifier.state.lastAlertSentMessage, contains('Warangal District'));
+    });
+
+    test('KycNotifier loads applications and filters dynamically', () async {
+      final kycNotifier = KycNotifier();
+      await kycNotifier.loadApplications();
+      expect(kycNotifier.state.applications.isNotEmpty, true);
+
+      await kycNotifier.setStatusFilter(KycStatus.pending);
+      expect(kycNotifier.state.selectedStatus, KycStatus.pending);
+      expect(kycNotifier.state.applications.every((a) => a.status == KycStatus.pending), true);
+
+      await kycNotifier.approve('KYC-FARM-101');
+      expect(kycNotifier.state.actionMessage, contains('KYC-FARM-101 approved'));
     });
   });
 
@@ -140,7 +221,7 @@ void main() {
       expect(find.text('Export Executive Report'), findsOneWidget);
     });
 
-    testWidgets('Switching section updates active view', (tester) async {
+    testWidgets('Switching section updates active view and renders KYC queue', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -165,6 +246,16 @@ void main() {
 
       expect(find.text('Farmer & Delivery Partner Verification Queue'), findsOneWidget);
       expect(find.text('Ramesh Kumar'), findsOneWidget);
+      expect(find.text('Suresh Patel'), findsOneWidget);
+
+      // Inspect dialog test
+      expect(find.text('Inspect'), findsWidgets);
+      await tester.tap(find.text('Inspect').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verification Details & Land/Vehicle Specs:'), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
 
       // Switch to Mandi & Outbreaks
       container.read(adminProvider.notifier).selectSection(AdminSection.mandiOutbreaks);
