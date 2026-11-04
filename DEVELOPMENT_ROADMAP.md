@@ -236,3 +236,43 @@ This checklist tracks our end-to-end development journey from setup to productio
   - "Broadcast to All Farmers" action sending real-time price updates.
 - [x] Verified zero issues (`flutter analyze` -> No issues found).
 - [x] Verified with automated test suites (`test/admin_test.dart` -> 46/46 total tests passing).
+
+---
+
+## 🚚 Phase 12: Admin Dashboard — Live Dispatch & Logistics Control, System Settings, and Web Deployment ✅ COMPLETED
+- [x] Built `AdminDispatchTrip` and `DispatchStatus` domain models in `admin_dispatch_trip.dart`:
+  - `DispatchStatus` (`pendingAssignment`, `pickedUp`, `inTransit`, `delivered`, `disputed`) with distinct colors and semantic icons.
+  - Tracks driver details (phone, vehicle), pickup farm, customer address, OTP handover code, and override flags.
+- [x] Built `AdminDispatchRepository` in `admin_dispatch_repository.dart`:
+  - Seeded active trips with live statuses across Telangana agricultural corridors.
+  - Dynamic status and keyword search filters.
+  - `reassignDriver` updating assigned fleet partner and vehicle model.
+  - `overrideVerifyOtp` granting administrator bypass when customer phone battery dies or signal is absent.
+- [x] Built Riverpod `DispatchNotifier` & `dispatch_provider.dart` for reactive dispatch telemetry.
+- [x] Built `SystemSettings` model & `SystemSettingsNotifier` in `system_settings_provider.dart`:
+  - Gemini Vision model switcher (`Gemini 1.5 Flash` vs. `Gemini 1.5 Pro`).
+  - Razorpay gateway mode selector (`Sandbox / Test` vs. `Production Live`).
+  - Platform commission percentage adjuster (0.0% to 15.0%).
+  - AGRI MITRA Regional Voice Assistant speech rate slider (0.30x to 0.90x).
+  - Automated driver dispatch algorithm toggle.
+- [x] Upgraded `AdminDispatchTab` UI:
+  - Header statistics banner and search/filter bar.
+  - Interactive delivery cards with visual farm-to-doorstep route indicator.
+  - "Reassign Fleet Driver" dialog with driver fleet dropdown.
+  - "Admin Doorstep OTP Override" modal with security audit confirmation.
+- [x] Upgraded `AdminSettingsTab` UI:
+  - Google Gemini Vision AI card with model selector and offline fallback notice.
+  - Razorpay payment gateway mode chips and instant settlement status.
+  - Platform marketplace commission slider with real-time ₹1,000 transaction payout breakdown.
+  - Multilingual voice tuning slider for elderly rural comprehension (0.48x pace).
+  - Automated fleet dispatch switch.
+  - Cloud infrastructure health indicators (Firestore, Storage, SMS gateway).
+  - Cache flush and remote configuration save actions with feedback alerts.
+- [x] Created [ADMIN_WEB_DEPLOYMENT.md](file:///d:/antigravity/ai%20crop%20disease%20detection%20system/ADMIN_WEB_DEPLOYMENT.md) with comprehensive deployment guides:
+  - Firebase Hosting step-by-step setup and SPA rewrites.
+  - GitHub Pages deployment using `gh-pages` branch and `--base-href`.
+  - Docker & Cloud Run NGINX container deployment.
+  - Security rules and CORS hardening guidelines.
+- [x] Verified zero issues (`flutter analyze` -> No issues found).
+- [x] Verified with automated test suites (`test/admin_test.dart` -> 52/52 total tests passing).
+

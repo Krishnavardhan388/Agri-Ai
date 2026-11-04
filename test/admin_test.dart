@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agri_ai/features/admin/data/admin_analytics_repository.dart';
+import 'package:agri_ai/features/admin/data/admin_dispatch_repository.dart';
 import 'package:agri_ai/features/admin/data/admin_kyc_repository.dart';
 import 'package:agri_ai/features/admin/data/admin_mandi_controller_repository.dart';
 import 'package:agri_ai/features/admin/data/admin_marketplace_repository.dart';
 import 'package:agri_ai/features/admin/domain/admin_analytics_summary.dart';
+import 'package:agri_ai/features/admin/domain/admin_dispatch_trip.dart';
 import 'package:agri_ai/features/admin/domain/admin_marketplace_item.dart';
 import 'package:agri_ai/features/admin/domain/admin_section.dart';
 import 'package:agri_ai/features/admin/domain/kyc_application_model.dart';
 import 'package:agri_ai/features/admin/presentation/admin_main_screen.dart';
 import 'package:agri_ai/features/admin/state/admin_provider.dart';
+import 'package:agri_ai/features/admin/state/dispatch_provider.dart';
 import 'package:agri_ai/features/admin/state/kyc_provider.dart';
 import 'package:agri_ai/features/admin/state/mandi_controller_provider.dart';
 import 'package:agri_ai/features/admin/state/marketplace_moderation_provider.dart';
+import 'package:agri_ai/features/admin/state/system_settings_provider.dart';
 import 'package:agri_ai/features/auth/domain/user_role.dart';
 
 void main() {
@@ -348,6 +352,118 @@ void main() {
       expect(find.textContaining('Cotton Pink Bollworm'), findsOneWidget);
       expect(find.textContaining('Cotton (Medium Staple)'), findsOneWidget);
       expect(find.textContaining('Warangal APMC Mandi'), findsOneWidget);
+
+      // 4. Switch to Live Dispatch
+      container.read(adminProvider.notifier).selectSection(AdminSection.liveDispatch);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Live Farm-to-Doorstep Dispatch & Logistics Control'), findsOneWidget);
+      expect(find.textContaining('TRIP-4019'), findsOneWidget);
+      expect(find.textContaining('Suresh Patel'), findsWidgets);
+
+      // 5. Switch to System Settings
+      container.read(adminProvider.notifier).selectSection(AdminSection.systemSettings);
+      await tester.pumpAndSettle();
+
+      expect(find.text('System Configurations & Platform Control Center'), findsOneWidget);
+      expect(find.text('Google Gemini Vision AI Engine'), findsOneWidget);
+      expect(find.text('Razorpay Payment Gateway'), findsOneWidget);
+      expect(find.text('Marketplace Economics & Platform Commission'), findsOneWidget);
+      expect(find.text('AGRI MITRA Regional Voice Assistant Tuning'), findsOneWidget);
+    });
+  });
+
+  group('Admin Dispatch Repository & Provider Tests', () {
+    late AdminDispatchRepository dispatchRepo;
+
+    setUp(() {
+      dispatchRepo = AdminDispatchRepository();
+    });
+
+    test('Loads seeded active trips and returns proper counts', () async {
+      final trips = await dispatchRepo.getTrips();
+      expect(trips.length, greaterThanOrEqualTo(4));
+
+      final activeCount = dispatchRepo.getActiveCount();
+      expect(activeCount, greaterThanOrEqualTo(1));
+    });
+
+    test('Filters trips by status and search query', () async {
+      final inTransitOnly = await dispatchRepo.getTrips(status: DispatchStatus.inTransit);
+      expect(inTransitOnly.isNotEmpty, true);
+      for (final trip in inTransitOnly) {
+        expect(trip.status, DispatchStatus.inTransit);
+      }
+
+      final searchResults = await dispatchRepo.getTrips(searchQuery: 'Suresh');
+      expect(searchResults.length, 1);
+      expect(searchResults.first.tripId, 'TRIP-4019');
+    });
+
+    test('Reassigns driver successfully', () async {
+      final success = await dispatchRepo.reassignDriver(
+        'TRIP-4019',
+        newDriverName: 'Rajesh Goud',
+        newDriverPhone: '+91 98765 44332',
+        newDriverVehicle: 'Piaggio Ape Cargo (TS-03-TR-9102)',
+      );
+      expect(success, true);
+
+      final trip = (await dispatchRepo.getTrips()).firstWhere((t) => t.tripId == 'TRIP-4019');
+      expect(trip.driverName, 'Rajesh Goud');
+      expect(trip.driverPhone, '+91 98765 44332');
+      expect(trip.driverVehicle, 'Piaggio Ape Cargo (TS-03-TR-9102)');
+    });
+
+    test('Admin overrides OTP and delivers package', () async {
+      final success = await dispatchRepo.overrideVerifyOtp('TRIP-4019');
+      expect(success, true);
+
+      final trip = (await dispatchRepo.getTrips()).firstWhere((t) => t.tripId == 'TRIP-4019');
+      expect(trip.status, DispatchStatus.delivered);
+      expect(trip.isOtpOverridden, true);
+    });
+
+    test('DispatchProvider notifier loads and updates trips', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(dispatchProvider.notifier).loadTrips();
+      final trips = container.read(dispatchProvider).trips;
+      expect(trips.isNotEmpty, true);
+
+      await container.read(dispatchProvider.notifier).setStatusFilter(DispatchStatus.inTransit);
+      expect(container.read(dispatchProvider).selectedStatus, DispatchStatus.inTransit);
+    });
+  });
+
+  group('System Settings Provider Tests', () {
+    test('SystemSettingsNotifier modifies parameters cleanly', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final initial = container.read(systemSettingsProvider).settings;
+      expect(initial.geminiModel, contains('Flash'));
+      expect(initial.platformCommissionPercent, 5.0);
+      expect(initial.defaultVoiceSpeechRate, 0.48);
+      expect(initial.isAutoDispatchEnabled, true);
+
+      final notifier = container.read(systemSettingsProvider.notifier);
+
+      notifier.updateGeminiModel('Gemini 1.5 Pro (Multimodal)');
+      expect(container.read(systemSettingsProvider).settings.geminiModel, 'Gemini 1.5 Pro (Multimodal)');
+
+      notifier.setRazorpayMode('Production Live Mode');
+      expect(container.read(systemSettingsProvider).settings.razorpayMode, 'Production Live Mode');
+
+      notifier.updateCommission(7.5);
+      expect(container.read(systemSettingsProvider).settings.platformCommissionPercent, 7.5);
+
+      notifier.updateSpeechRate(0.55);
+      expect(container.read(systemSettingsProvider).settings.defaultVoiceSpeechRate, 0.55);
+
+      notifier.toggleAutoDispatch();
+      expect(container.read(systemSettingsProvider).settings.isAutoDispatchEnabled, false);
     });
   });
 }
