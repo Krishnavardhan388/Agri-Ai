@@ -210,3 +210,29 @@ This checklist tracks our end-to-end development journey from setup to productio
   - Action buttons: "Inspect", "Approve & Activate", and "Reject Application" dialog.
 - [x] Verified zero issues (`flutter analyze` -> No issues found).
 - [x] Verified with automated test suites (`test/admin_test.dart` -> 40/40 total tests passing).
+
+---
+
+## 🏪 Phase 11: Admin Dashboard — Marketplace Produce Moderation & Mandi Rate Controller ✅ COMPLETED
+- [x] Built `AdminProductItem` and `ProductModerationStatus` domain models in `admin_marketplace_item.dart`:
+  - Real-time price deviation calculation against APMC mandi benchmark (`priceDeviationPercent`).
+  - High anomaly threshold flag (`>45% deviation`).
+  - `ProductModerationStatus` (`active`, `priceAlert`, `unlisted`, `outOfStock`).
+- [x] Built `AdminMandiCropRate` domain model in `admin_mandi_update.dart` for official APMC benchmark floor pricing.
+- [x] Built `AdminMarketplaceRepository` and `AdminMandiControllerRepository`:
+  - Seeded crop catalog across vegetables, grains, commercial crops, and spices.
+  - Price anomaly detection engine comparing farmer produce against regional mandi floor rates.
+  - APMC floor price benchmarks across Telangana market yards (Warangal, Karimnagar, Khammam, Bowenpally, Malakpet).
+- [x] Built Riverpod state notifiers:
+  - `marketplaceModerationProvider` (`approveListing`, `flagPriceWarning`, `unlistListing`, `updateStock`, `toggleOrganic`).
+  - `mandiControllerProvider` (`updateRate`, `broadcastRate`).
+- [x] Upgraded `AdminMarketplaceTab` UI:
+  - Price anomaly alert banner with live count.
+  - Search field and filter chips (`All Items`, `🟢 Active & Approved`, `⚠️ Price Anomaly`, `⏸️ Unlisted`, `🌿 Organic Only`).
+  - Produce card feed displaying asking price vs. Mandi benchmark, percentage deviation pills, stock editor modal, and price warning dialog.
+- [x] Upgraded `AdminMandiTab` UI:
+  - APMC daily floor price benchmark table with modal prices, ranges, and trend indicators.
+  - "Edit Floor Rate" modal with automatic min/max range re-calculation.
+  - "Broadcast to All Farmers" action sending real-time price updates.
+- [x] Verified zero issues (`flutter analyze` -> No issues found).
+- [x] Verified with automated test suites (`test/admin_test.dart` -> 46/46 total tests passing).

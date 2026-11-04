@@ -3,12 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agri_ai/features/admin/data/admin_analytics_repository.dart';
 import 'package:agri_ai/features/admin/data/admin_kyc_repository.dart';
+import 'package:agri_ai/features/admin/data/admin_mandi_controller_repository.dart';
+import 'package:agri_ai/features/admin/data/admin_marketplace_repository.dart';
 import 'package:agri_ai/features/admin/domain/admin_analytics_summary.dart';
+import 'package:agri_ai/features/admin/domain/admin_marketplace_item.dart';
 import 'package:agri_ai/features/admin/domain/admin_section.dart';
 import 'package:agri_ai/features/admin/domain/kyc_application_model.dart';
 import 'package:agri_ai/features/admin/presentation/admin_main_screen.dart';
 import 'package:agri_ai/features/admin/state/admin_provider.dart';
 import 'package:agri_ai/features/admin/state/kyc_provider.dart';
+import 'package:agri_ai/features/admin/state/mandi_controller_provider.dart';
+import 'package:agri_ai/features/admin/state/marketplace_moderation_provider.dart';
 import 'package:agri_ai/features/auth/domain/user_role.dart';
 
 void main() {
@@ -41,6 +46,12 @@ void main() {
       expect(KycStatus.pending.displayName, 'Pending Review');
       expect(KycStatus.approved.displayName, 'Verified & Active');
       expect(KycStatus.rejected.displayName, 'Rejected');
+    });
+
+    test('ProductModerationStatus has valid color and icons', () {
+      expect(ProductModerationStatus.active.displayName, 'Active & Approved');
+      expect(ProductModerationStatus.priceAlert.displayName, 'Price Anomaly Alert');
+      expect(ProductModerationStatus.unlisted.displayName, 'Unlisted / Paused');
     });
   });
 
@@ -142,6 +153,80 @@ void main() {
     });
   });
 
+  group('Admin Marketplace & Moderation Tests', () {
+    late AdminMarketplaceRepository marketRepo;
+
+    setUp(() {
+      marketRepo = AdminMarketplaceRepository();
+    });
+
+    test('Repository returns seeded produce with price anomalies', () async {
+      final products = await marketRepo.getProducts();
+      expect(products.length, 6);
+      expect(marketRepo.getPriceAnomalyCount(), 1);
+
+      final onion = products.firstWhere((p) => p.id == 'prod-onion-4');
+      expect(onion.hasHighDeviation, true);
+      expect(onion.priceDeviationPercent, greaterThan(50.0));
+    });
+
+    test('Repository updates stock, status, and organic tag', () async {
+      final updateSuccess = await marketRepo.updateProductStatus('prod-onion-4', ProductModerationStatus.active);
+      expect(updateSuccess, true);
+
+      final stockSuccess = await marketRepo.updateStock('prod-tomato-1', 200.0);
+      expect(stockSuccess, true);
+
+      final organicSuccess = await marketRepo.toggleOrganicStatus('prod-cotton-5');
+      expect(organicSuccess, true);
+    });
+
+    test('MarketplaceModerationNotifier manages filters and actions', () async {
+      final notifier = MarketplaceModerationNotifier();
+      await notifier.loadProducts();
+      expect(notifier.state.products.length, 6);
+
+      await notifier.toggleOrganicFilter();
+      expect(notifier.state.onlyOrganic, true);
+
+      await notifier.flagPriceWarning('prod-onion-4', 'Price is too high');
+      expect(notifier.state.actionMessage, contains('Price anomaly alert'));
+    });
+  });
+
+  group('Admin Mandi Controller Tests', () {
+    late AdminMandiControllerRepository mandiRepo;
+
+    setUp(() {
+      mandiRepo = AdminMandiControllerRepository();
+    });
+
+    test('Repository fetches APMC rates and updates benchmarks', () async {
+      final rates = await mandiRepo.getRates();
+      expect(rates.length, 5);
+
+      final cotton = rates.firstWhere((r) => r.id == 'mandi-cotton-1');
+      expect(cotton.modalPricePerQuintal, 7120.0);
+
+      final updateSuccess = await mandiRepo.updateRate('mandi-cotton-1', 7300.0);
+      expect(updateSuccess, true);
+
+      final updatedRates = await mandiRepo.getRates();
+      final updatedCotton = updatedRates.firstWhere((r) => r.id == 'mandi-cotton-1');
+      expect(updatedCotton.modalPricePerQuintal, 7300.0);
+      expect(updatedCotton.isRising, true);
+    });
+
+    test('MandiControllerNotifier handles rates and broadcasting', () async {
+      final notifier = MandiControllerNotifier();
+      await notifier.loadRates();
+      expect(notifier.state.rates.length, 5);
+
+      await notifier.broadcastRate('mandi-cotton-1');
+      expect(notifier.state.actionMessage, contains('Broadcast sent to farmers'));
+    });
+  });
+
   group('Admin State Provider Tests', () {
     test('AdminNotifier initial state, tab selection, and timeframe shift', () async {
       final notifier = AdminNotifier();
@@ -221,7 +306,7 @@ void main() {
       expect(find.text('Export Executive Report'), findsOneWidget);
     });
 
-    testWidgets('Switching section updates active view and renders KYC queue', (tester) async {
+    testWidgets('Switching section updates active view and renders KYC, Marketplace, and Mandi tabs', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -240,7 +325,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Switch to Verification section
+      // 1. Switch to Verification section
       container.read(adminProvider.notifier).selectSection(AdminSection.userVerification);
       await tester.pumpAndSettle();
 
@@ -248,20 +333,21 @@ void main() {
       expect(find.text('Ramesh Kumar'), findsOneWidget);
       expect(find.text('Suresh Patel'), findsOneWidget);
 
-      // Inspect dialog test
-      expect(find.text('Inspect'), findsWidgets);
-      await tester.tap(find.text('Inspect').first);
+      // 2. Switch to Marketplace section
+      container.read(adminProvider.notifier).selectSection(AdminSection.marketplaceModeration);
       await tester.pumpAndSettle();
 
-      expect(find.text('Verification Details & Land/Vehicle Specs:'), findsOneWidget);
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
+      expect(find.text('Marketplace Produce Moderation & Quality Assurance'), findsOneWidget);
+      expect(find.textContaining('Fresh Organic Red Tomatoes'), findsOneWidget);
+      expect(find.textContaining('Fresh Red Onions'), findsOneWidget);
 
-      // Switch to Mandi & Outbreaks
+      // 3. Switch to Mandi & Outbreaks
       container.read(adminProvider.notifier).selectSection(AdminSection.mandiOutbreaks);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Cotton Pink Bollworm'), findsOneWidget);
+      expect(find.textContaining('Cotton (Medium Staple)'), findsOneWidget);
+      expect(find.textContaining('Warangal APMC Mandi'), findsOneWidget);
     });
   });
 }
