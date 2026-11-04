@@ -77,6 +77,12 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                       isSelected: _selectedRole == UserRole.deliveryPartner,
                       onTap: () => setState(() => _selectedRole = UserRole.deliveryPartner),
                     ),
+                    const SizedBox(height: 14),
+                    _RoleOptionCard(
+                      role: UserRole.admin,
+                      isSelected: _selectedRole == UserRole.admin,
+                      onTap: () => setState(() => _selectedRole = UserRole.admin),
+                    ),
                   ],
                 ),
               ),

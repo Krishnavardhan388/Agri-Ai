@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../admin/presentation/admin_main_screen.dart';
 import '../../dashboards/customer/customer_main_screen.dart';
 import '../../dashboards/delivery/delivery_main_screen.dart';
 import '../../dashboards/farmer/farmer_main_screen.dart';
@@ -46,6 +47,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         break;
       case UserRole.deliveryPartner:
         destination = const DeliveryMainScreen();
+        break;
+      case UserRole.admin:
+        destination = const AdminMainScreen();
         break;
     }
 

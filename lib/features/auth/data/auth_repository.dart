@@ -137,7 +137,9 @@ class FirebaseAuthRepository implements AuthRepository {
                 ? 'Ramesh Kumar (Farmer)'
                 : role == UserRole.customer
                     ? 'Priya Sharma (Customer)'
-                    : 'Suresh Patel (Delivery Partner)',
+                    : role == UserRole.deliveryPartner
+                        ? 'Suresh Patel (Delivery Partner)'
+                        : 'HQ Operations Officer (Admin)',
         phone: verificationId.replaceAll('mock-verification-id-', ''),
         role: role,
         location: location ?? 'Warangal, Telangana',

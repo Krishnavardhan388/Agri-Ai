@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../admin/presentation/admin_main_screen.dart';
 import '../../dashboards/customer/customer_main_screen.dart';
 import '../../dashboards/delivery/delivery_main_screen.dart';
 import '../../dashboards/farmer/farmer_main_screen.dart';
@@ -59,6 +60,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             break;
           case UserRole.deliveryPartner:
             destination = const DeliveryMainScreen();
+            break;
+          case UserRole.admin:
+            destination = const AdminMainScreen();
             break;
         }
         Navigator.of(context).pushReplacement(
