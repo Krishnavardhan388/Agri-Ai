@@ -108,5 +108,70 @@ class TestAgriAiBackend(unittest.TestCase):
         self.assertIn("feature_recommendations", analysis)
         self.assertGreater(len(analysis["feature_recommendations"]), 0)
 
+    def test_07_community_kisan_charcha(self):
+        # 1. Fetch community posts
+        posts_resp = self.client.get("/api/v1/community/posts")
+        self.assertEqual(posts_resp.status_code, 200)
+        posts = posts_resp.json()
+        self.assertGreater(len(posts), 0)
+        post_id = posts[0]["id"]
+        original_upvotes = posts[0]["upvotes"]
+
+        # 2. Upvote post
+        upvote_resp = self.client.post(f"/api/v1/community/posts/{post_id}/upvote")
+        self.assertEqual(upvote_resp.status_code, 200)
+        self.assertEqual(upvote_resp.json()["upvotes"], original_upvotes + 1)
+
+        # 3. Add an agronomist comment
+        comment_payload = {
+            "author_name": "Dr. Subba Rao",
+            "author_role": "Soil Scientist",
+            "content": "Apply Trichoderma viride enriched FYM 2 weeks prior to sowing.",
+            "is_agronomist_reply": True
+        }
+        comment_resp = self.client.post(f"/api/v1/community/posts/{post_id}/comments", json=comment_payload)
+        self.assertEqual(comment_resp.status_code, 201)
+        self.assertTrue(comment_resp.json()["is_agronomist_reply"])
+
+    def test_08_satellite_radar(self):
+        resp = self.client.get("/api/v1/satellite/farm-radar?lat=17.9689&lng=79.5941")
+        self.assertEqual(resp.status_code, 200)
+        radar = resp.json()
+        self.assertGreater(radar["ndvi_index"], 0.7)
+        self.assertEqual(radar["spore_infection_risk"], "LOW (Safe)")
+        self.assertIn("recommended_spray_window", radar)
+
+    def test_09_variable_rate_dilution_calculator(self):
+        # 1. Test Organic calculation
+        payload_organic = {
+            "crop_name": "Tomato",
+            "disease_name": "Early Blight",
+            "acreage": 2.0,
+            "tank_capacity_liters": 16.0,
+            "treatment_type": "organic"
+        }
+        resp = self.client.post("/api/v1/calculator/dilution", json=payload_organic)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["water_volume_liters"], 400.0)
+        self.assertEqual(data["tanks_count"], 25.0)
+        self.assertIn("Neem Oil", data["active_ingredient"])
+        self.assertGreater(data["estimated_cost_savings_inr"], 0)
+
+        # 2. Test Chemical calculation
+        payload_chemical = {
+            "crop_name": "Tomato",
+            "disease_name": "Early Blight",
+            "acreage": 1.5,
+            "tank_capacity_liters": 15.0,
+            "treatment_type": "chemical"
+        }
+        resp_chem = self.client.post("/api/v1/calculator/dilution", json=payload_chemical)
+        self.assertEqual(resp_chem.status_code, 200)
+        chem_data = resp_chem.json()
+        self.assertEqual(chem_data["water_volume_liters"], 300.0)
+        self.assertEqual(chem_data["tanks_count"], 20.0)
+        self.assertIn("Mancozeb", chem_data["active_ingredient"])
+
 if __name__ == "__main__":
     unittest.main()

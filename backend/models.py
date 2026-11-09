@@ -111,3 +111,80 @@ class SimulationRunResponse(BaseModel):
     avg_rating: float
     feedback_summary: str
     logs: List[str]
+
+# Community Kisan Charcha Models
+class CommentCreate(BaseModel):
+    author_name: str
+    author_role: str = "Farmer"
+    content: str
+    is_agronomist_reply: bool = False
+
+class CommentResponse(BaseModel):
+    id: str
+    post_id: str
+    author_name: str
+    author_role: str
+    content: str
+    is_agronomist_reply: bool
+    created_at: str
+
+class CommunityPostCreate(BaseModel):
+    author_name: str
+    author_role: str = "Farmer"
+    location: str
+    crop_name: str
+    title: str
+    content: str
+
+class CommunityPostResponse(BaseModel):
+    id: str
+    author_name: str
+    author_role: str
+    location: str
+    crop_name: str
+    title: str
+    content: str
+    upvotes: int
+    ai_verified: bool
+    expert_verified: bool
+    created_at: str
+    comments: List[CommentResponse] = []
+
+# Satellite & Bio-Climatic Radar Models
+class SatelliteRadarResponse(BaseModel):
+    satellite_name: str
+    orbit_time: str
+    ndvi_index: float
+    ndvi_status: str
+    ndre_index: float
+    ndwi_index: float
+    soil_moisture_percentage: float
+    soil_temperature_celsius: float
+    spore_infection_risk: str
+    microclimate_alert: str
+    recommended_spray_window: str
+
+# Variable-Rate Application Dosage Calculator
+class DilutionCalculationRequest(BaseModel):
+    crop_name: str
+    disease_name: str
+    acreage: float
+    tank_capacity_liters: float = 16.0
+    treatment_type: str = "organic" # or "chemical"
+    spray_speed_kmh: float = 3.5
+
+class DilutionCalculationResponse(BaseModel):
+    crop_name: str
+    disease_name: str
+    acreage: float
+    tank_capacity_liters: float
+    water_volume_liters: float
+    tanks_count: float
+    active_ingredient: str
+    dose_per_liter: str
+    dose_per_tank: str
+    total_material_needed: str
+    ppe_guideline: str
+    wind_restriction: str
+    estimated_cost_savings_inr: float
+

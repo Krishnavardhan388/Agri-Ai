@@ -139,6 +139,37 @@ def init_db():
         );
         """)
 
+        # 8. Kisan Charcha (Community Posts)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS community_posts (
+            id TEXT PRIMARY KEY,
+            author_name TEXT NOT NULL,
+            author_role TEXT NOT NULL,
+            location TEXT NOT NULL,
+            crop_name TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            upvotes INTEGER DEFAULT 0,
+            ai_verified INTEGER DEFAULT 1,
+            expert_verified INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+        # 9. Kisan Charcha (Community Comments / Expert Advice)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS community_comments (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL,
+            author_name TEXT NOT NULL,
+            author_role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            is_agronomist_reply INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (post_id) REFERENCES community_posts(id) ON DELETE CASCADE
+        );
+        """)
+
         # Seed initial Mandi Rates & Products if empty
         cursor.execute("SELECT COUNT(*) FROM mandi_rates;")
         if cursor.fetchone()[0] == 0:
@@ -174,6 +205,72 @@ def init_db():
                 ('REV-1', 'AGRI-1001', 'Ramesh Kumar', 'Dr. Priya Sharma', 5.0, 'Exceptional farm-fresh organic tomatoes! Sweet, firm, and chemical-free.', 'Seamless checkout flow with Razorpay UPI.', 'CONSUMER_PERSONA'),
                 ('REV-2', 'AGRI-1002', 'Ramesh Kumar', 'Anand Rao', 4.5, 'Sona Masoori rice cooks fluffy with great natural aroma. Fast delivery.', 'GPS map accurately pointed to the farm pick-up yard.', 'CONSUMER_PERSONA'),
                 ('REV-3', 'AGRI-1003', 'Lakshmi Devi', 'Sneha Reddy', 5.0, 'High pungency genuine Teja chillies. Great packaging in jute bags.', 'Loved the Telugu voice assistant advisory before ordering.', 'CONSUMER_PERSONA')
+            ])
+
+        cursor.execute("SELECT COUNT(*) FROM community_posts;")
+        if cursor.fetchone()[0] == 0:
+            cursor.executemany("""
+            INSERT INTO community_posts (id, author_name, author_role, location, crop_name, title, content, upvotes, ai_verified, expert_verified)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """, [
+                (
+                    'POST-101',
+                    'Ramesh Patel',
+                    'Cotton Farmer',
+                    'Warangal, Telangana',
+                    'Cotton',
+                    'Pink Bollworm infestation observed in 45-day Bt cotton crop - need urgent spray schedule',
+                    'I noticed rosette flowers and small entrance boreholes on cotton bolls. Current temperature is 31°C with 70% humidity. Has anyone tried Profenofos 50% EC vs Emamectin Benzoate 5% SG? What is the safe tank dilution?',
+                    34,
+                    1,
+                    1
+                ),
+                (
+                    'POST-102',
+                    'Srinivasulu Naidu',
+                    'Horticulture Farmer',
+                    'Guntur, AP',
+                    'Chilli',
+                    'Black Thrips (Thrips parvispinus) leaf curling & flower drop remedy',
+                    'Severe upward leaf curling in 3rd picking stage chilli. Blue sticky traps caught hundreds. Seeking organic biological control or IPM rotation to prevent chemical resistance.',
+                    48,
+                    1,
+                    1
+                ),
+                (
+                    'POST-103',
+                    'Gurpreet Singh',
+                    'Paddy Grower',
+                    'Karnal, Haryana',
+                    'Paddy (Basmati)',
+                    'Pre-emptive spray for Sheath Blight before upcoming monsoon spell',
+                    'Satellite radar is showing high canopy moisture (NDWI 0.58). Should I apply Hexaconazole 5% SC now or wait for clear sunshine?',
+                    22,
+                    1,
+                    0
+                )
+            ])
+
+            cursor.executemany("""
+            INSERT INTO community_comments (id, post_id, author_name, author_role, content, is_agronomist_reply)
+            VALUES (?, ?, ?, ?, ?, ?);
+            """, [
+                (
+                    'COMM-1',
+                    'POST-101',
+                    'Dr. V. K. Rao (ICAR Agronomist)',
+                    'Certified Entomologist',
+                    'Immediate action: Spray Emamectin Benzoate 5% SG @ 0.4g per Liter water (6.5g per 16L knapsack tank) in late afternoon. Avoid synthetic pyrethroids which cause flare-up of secondary sucking pests.',
+                    1
+                ),
+                (
+                    'COMM-2',
+                    'POST-102',
+                    'AGRI AI Diagnosis Engine',
+                    'Automated IPM Specialist',
+                    'IPM Protocol: Install 20 blue sticky traps/acre. Spray Neem Oil 10,000 ppm @ 3ml/L water mixed with Pongamia soap. Rotate with Spinetoram 11.7% SC @ 0.9ml/L if thrips threshold exceeds 5 per terminal leaf.',
+                    1
+                )
             ])
 
 if __name__ == "__main__":

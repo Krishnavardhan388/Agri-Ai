@@ -6,6 +6,7 @@ import '../../../mandi_prices/domain/mandi_crop_model.dart';
 import '../../../mandi_prices/presentation/mandi_market_screen.dart';
 import '../../../smart_farming/state/smart_farming_provider.dart';
 import '../../../voice_assistant/presentation/agri_mitra_voice_screen.dart';
+import '../../../community/presentation/kisan_charcha_screen.dart';
 
 class FarmerHomeTab extends ConsumerWidget {
   final VoidCallback onNavigateToDoctor;
@@ -294,6 +295,199 @@ class FarmerHomeTab extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
+            // SATELLITE SENTINEL-2 RADAR & 72H PEST SPORE OUTBREAK WARNING
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.satellite_alt_rounded, color: AppColors.primaryGreen, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Satellite Farm Radar (Sentinel-2)',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.greenSurface,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('10m Resolution', style: TextStyle(fontSize: 10, color: AppColors.primaryDark, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            AgriCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('VEGETATIVE BIOMASS CANOPY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.8)),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Text('NDVI: 0.78', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text('Dense & Healthy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.greenSurface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.eco_rounded, color: AppColors.primaryGreen, size: 24),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Progress bar representing NDVI (0.78 out of 1.0)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: 0.78,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                      minHeight: 8,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Multispectral Index Badges
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _RadarIndexMetric(label: 'NDRE Chlorophyll', value: '0.64', status: 'Optimal N'),
+                      _RadarIndexMetric(label: 'NDWI Canopy Water', value: '0.42', status: 'Hydrated'),
+                      _RadarIndexMetric(label: 'Soil Moisture', value: '68%', status: 'Normal'),
+                    ],
+                  ),
+                  const Divider(height: 22),
+
+                  // 72-Hour Pest & Spore Micro-Climate Alert
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FBF7),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.coronavirus_outlined, color: AppColors.earthAmber, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('72h Fungal Outbreak Forecast', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary)),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.greenSurface,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text('LOW RISK', style: TextStyle(color: AppColors.primaryDark, fontSize: 9, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'RH 64% & 24°C prevents spore germination. Pre-symptomatic stress is 0%. Next risk spike in 48h after predicted drizzle.',
+                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // KISAN CHARCHA COMMUNITY FORUM BANNER
+            AgriCard(
+              padding: const EdgeInsets.all(14),
+              border: Border.all(color: AppColors.primaryGreen.withValues(alpha: 0.4), width: 1.5),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const KisanCharchaScreen()),
+                );
+              },
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.greenSurface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.forum_rounded, color: AppColors.primaryGreen, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              '🌾 Kisan Charcha Forum',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryGreen,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Connect with peer farmers & get ICAR Agronomist verified remedies',
+                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primaryGreen),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // Today's Mandi Rates Preview
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -370,6 +564,41 @@ class _MandiHomeTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RadarIndexMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final String status;
+
+  const _RadarIndexMetric({
+    required this.label,
+    required this.value,
+    required this.status,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)),
+        const SizedBox(height: 1),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: AppColors.greenSurface,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            status,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+          ),
+        ),
+      ],
     );
   }
 }

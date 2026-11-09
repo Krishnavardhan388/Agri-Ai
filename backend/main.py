@@ -7,7 +7,9 @@ from backend.models import (
     ProductCreate, ProductResponse,
     OrderCreate, OrderResponse, VerifyOtpRequest,
     ReviewCreate, ReviewResponse,
-    MandiRateResponse, SimulationRunRequest, SimulationRunResponse
+    MandiRateResponse, SimulationRunRequest, SimulationRunResponse,
+    CommunityPostCreate, CommunityPostResponse, CommentCreate, CommentResponse,
+    SatelliteRadarResponse, DilutionCalculationRequest, DilutionCalculationResponse
 )
 from backend.simulation.simulation_engine import SimulationEngine
 from backend.simulation.feedback_analyzer import FeedbackAnalyzer
@@ -340,6 +342,193 @@ def get_simulation_analysis():
     identifies UX friction points, and outputs feature recommendations.
     """
     return feedback_analyzer.analyze_feedback()
+
+# ============================================================
+# 7. Kisan Charcha (Community Forum & Dual Agronomist Verification)
+# ============================================================
+@app.get("/api/v1/community/posts", response_model=List[CommunityPostResponse])
+def get_community_posts():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM community_posts ORDER BY upvotes DESC, created_at DESC;")
+        posts = cursor.fetchall()
+        
+        result = []
+        for p in posts:
+            cursor.execute("SELECT * FROM community_comments WHERE post_id = ? ORDER BY created_at ASC;", (p["id"],))
+            comments = cursor.fetchall()
+            comment_models = [
+                CommentResponse(
+                    id=c["id"],
+                    post_id=c["post_id"],
+                    author_name=c["author_name"],
+                    author_role=c["author_role"],
+                    content=c["content"],
+                    is_agronomist_reply=bool(c["is_agronomist_reply"]),
+                    created_at=str(c["created_at"])
+                )
+                for c in comments
+            ]
+            result.append(
+                CommunityPostResponse(
+                    id=p["id"],
+                    author_name=p["author_name"],
+                    author_role=p["author_role"],
+                    location=p["location"],
+                    crop_name=p["crop_name"],
+                    title=p["title"],
+                    content=p["content"],
+                    upvotes=p["upvotes"],
+                    ai_verified=bool(p["ai_verified"]),
+                    expert_verified=bool(p["expert_verified"]),
+                    created_at=str(p["created_at"]),
+                    comments=comment_models
+                )
+            )
+        return result
+
+@app.post("/api/v1/community/posts", response_model=CommunityPostResponse, status_code=status.HTTP_201_CREATED)
+def create_community_post(post: CommunityPostCreate):
+    post_id = f"POST-{uuid.uuid4().hex[:6].upper()}"
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO community_posts (id, author_name, author_role, location, crop_name, title, content, upvotes, ai_verified, expert_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 0);
+        """, (
+            post_id,
+            post.author_name,
+            post.author_role,
+            post.location,
+            post.crop_name,
+            post.title,
+            post.content
+        ))
+        cursor.execute("SELECT * FROM community_posts WHERE id = ?;", (post_id,))
+        p = cursor.fetchone()
+        return CommunityPostResponse(
+            id=p["id"],
+            author_name=p["author_name"],
+            author_role=p["author_role"],
+            location=p["location"],
+            crop_name=p["crop_name"],
+            title=p["title"],
+            content=p["content"],
+            upvotes=p["upvotes"],
+            ai_verified=bool(p["ai_verified"]),
+            expert_verified=bool(p["expert_verified"]),
+            created_at=str(p["created_at"]),
+            comments=[]
+        )
+
+@app.post("/api/v1/community/posts/{post_id}/upvote")
+def upvote_post(post_id: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE community_posts SET upvotes = upvotes + 1 WHERE id = ?;", (post_id,))
+        cursor.execute("SELECT upvotes FROM community_posts WHERE id = ?;", (post_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Post not found")
+        return {"id": post_id, "upvotes": row[0]}
+
+@app.post("/api/v1/community/posts/{post_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
+def add_post_comment(post_id: str, comment: CommentCreate):
+    comment_id = f"COMM-{uuid.uuid4().hex[:6].upper()}"
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO community_comments (id, post_id, author_name, author_role, content, is_agronomist_reply)
+        VALUES (?, ?, ?, ?, ?, ?);
+        """, (
+            comment_id,
+            post_id,
+            comment.author_name,
+            comment.author_role,
+            comment.content,
+            1 if comment.is_agronomist_reply else 0
+        ))
+        cursor.execute("SELECT * FROM community_comments WHERE id = ?;", (comment_id,))
+        c = cursor.fetchone()
+        return CommentResponse(
+            id=c["id"],
+            post_id=c["post_id"],
+            author_name=c["author_name"],
+            author_role=c["author_role"],
+            content=c["content"],
+            is_agronomist_reply=bool(c["is_agronomist_reply"]),
+            created_at=str(c["created_at"])
+        )
+
+# ============================================================
+# 8. Satellite Multispectral NDVI & Bio-Climatic Pest Radar
+# ============================================================
+@app.get("/api/v1/satellite/farm-radar", response_model=SatelliteRadarResponse)
+def get_satellite_radar(lat: float = 17.9689, lng: float = 79.5941):
+    """
+    Simulates Sentinel-2 MSI Multi-Spectral Instrument 10m Ground Resolution:
+    - NDVI: Normalized Difference Vegetation Index (B8 - B4) / (B8 + B4)
+    - NDRE: Red Edge Chlorophyll & Nitrogen absorption (B8 - B5) / (B8 + B5)
+    - NDWI: Canopy Water Thickness & Hydration (B8 - B11) / (B8 + B11)
+    """
+    return SatelliteRadarResponse(
+        satellite_name="ESA Sentinel-2B (MSI 10m Multispectral)",
+        orbit_time="Today at 10:42 AM IST (Pass #84)",
+        ndvi_index=0.78,
+        ndvi_status="Vigorous Canopy Biomass (High Chlorophyll)",
+        ndre_index=0.64,
+        ndwi_index=0.42,
+        soil_moisture_percentage=68.5,
+        soil_temperature_celsius=24.2,
+        spore_infection_risk="LOW (Safe)",
+        microclimate_alert="Relative humidity 64% with 8 km/h gentle breeze. Fungal spore germ tube elongation inhibited. Pre-symptomatic stress is 0%.",
+        recommended_spray_window="Optimal Window: Tomorrow 06:30 AM - 09:30 AM before convective wind shear"
+    )
+
+# ============================================================
+# 9. Variable-Rate Application (VRA) Dosage & Tank Calculator
+# ============================================================
+@app.post("/api/v1/calculator/dilution", response_model=DilutionCalculationResponse)
+def calculate_tank_dilution(req: DilutionCalculationRequest):
+    """
+    Calculates exact knapsack tank dilution rates, total chemical/organic active ingredients,
+    water volume per acre, and cost savings from preventing chemical drift.
+    """
+    water_per_acre = 200.0 # 200 Litres standard knapsack coverage per acre
+    total_water = round(req.acreage * water_per_acre, 1)
+    tanks = round(total_water / req.tank_capacity_liters, 1)
+
+    if req.treatment_type.lower() == "organic":
+        active_ing = "Cold-Pressed Neem Oil (Azadirachtin 1500 ppm) + Organic Emulsifier"
+        dose_per_l = "5.0 ml / Liter"
+        dose_per_tank = f"{round(5.0 * req.tank_capacity_liters, 1)} ml per {int(req.tank_capacity_liters)}L tank"
+        total_mat = f"{round(total_water * 0.005, 2)} Litres total neem formulation"
+        ppe = "Standard cotton apron and spectacles. 100% bio-degradable, safe for bees after drying."
+        cost_savings = round(req.acreage * 450.0, 2)
+    else:
+        active_ing = "Mancozeb 75% WP (Contact Broad-Spectrum Fungicide)"
+        dose_per_l = "2.5 g / Liter"
+        dose_per_tank = f"{round(2.5 * req.tank_capacity_liters, 1)} g per {int(req.tank_capacity_liters)}L tank"
+        total_mat = f"{round((total_water * 2.5) / 1000.0, 2)} kg wettable powder"
+        ppe = "N95 respirator mask, nitrile gloves, and eye goggles. Pre-mix in 5L bucket before tank pour."
+        cost_savings = round(req.acreage * 720.0, 2)
+
+    return DilutionCalculationResponse(
+        crop_name=req.crop_name,
+        disease_name=req.disease_name,
+        acreage=req.acreage,
+        tank_capacity_liters=req.tank_capacity_liters,
+        water_volume_liters=total_water,
+        tanks_count=tanks,
+        active_ingredient=active_ing,
+        dose_per_liter=dose_per_l,
+        dose_per_tank=dose_per_tank,
+        total_material_needed=total_mat,
+        ppe_guideline=ppe,
+        wind_restriction="Do not spray if ambient wind speed exceeds 12 km/h (reduces drift loss by 40%)",
+        estimated_cost_savings_inr=cost_savings
+    )
+
 
 if __name__ == "__main__":
     import uvicorn

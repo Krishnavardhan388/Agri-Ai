@@ -5,6 +5,7 @@ import '../../../core/widgets/agri_card.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../voice_assistant/state/voice_assistant_provider.dart';
 import '../domain/crop_diagnosis_result.dart';
+import 'widgets/dosage_calculator_sheet.dart';
 
 class DiagnosisResultScreen extends ConsumerStatefulWidget {
   final CropDiagnosisResult result;
@@ -337,6 +338,68 @@ class _DiagnosisResultScreenState extends ConsumerState<DiagnosisResultScreen>
                           accentColor: AppColors.earthAmber,
                           emptyMessage: 'Maintain regular irrigation and balanced fertilizer.',
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Smart Knapsack Tank Dilution Calculator CTA
+                  AgriCard(
+                    padding: const EdgeInsets.all(14),
+                    border: Border.all(color: AppColors.primaryGreen, width: 1.5),
+                    onTap: () {
+                      DosageCalculatorSheet.show(
+                        context,
+                        cropName: result.cropName,
+                        diseaseName: result.diseaseName,
+                        organicTreatments: result.organicTreatments,
+                        chemicalTreatments: result.chemicalTreatments,
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.calculate_rounded, color: AppColors.primaryGreen, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Plot Dilution & Tank Calculator',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryGreen,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'VRA AI',
+                                      style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Calculate exact knapsack refills & dose per liter for your acreage',
+                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primaryGreen),
                       ],
                     ),
                   ),
