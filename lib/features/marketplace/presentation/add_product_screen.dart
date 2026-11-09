@@ -179,6 +179,42 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+
+              // AI Persona Optimization: Quick Batch Weight Presets
+              Row(
+                children: [
+                  const Text('Quick Batch:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [10, 25, 50, 100, 250, 500].map((preset) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6.0),
+                            child: InkWell(
+                              onTap: () => setState(() => _stockController.text = preset.toString()),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.greenSurface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.greenAccent.withValues(alpha: 0.5)),
+                                ),
+                                child: Text(
+                                  '$preset kg',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
 
               CustomTextField(
