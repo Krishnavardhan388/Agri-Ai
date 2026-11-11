@@ -341,6 +341,68 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 22),
+
+                // Live Startup Backend & Database Connectivity Indicator
+                if (authState.backendHealth != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  authState.backendHealth!.online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                                  size: 16,
+                                  color: authState.backendHealth!.online ? AppColors.primaryGreen : AppColors.alertRed,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  authState.backendHealth!.online ? 'API Server Online' : 'API Server Unreachable',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            InkWell(
+                              onTap: () => ref.read(authProvider.notifier).refreshBackendHealth(),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.refresh_rounded, size: 14, color: AppColors.primaryGreen),
+                                  SizedBox(width: 2),
+                                  Text('Check', style: TextStyle(fontSize: 11, color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Database: ${authState.backendHealth!.databaseLabel}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: authState.backendHealth!.mongoConnected ? AppColors.primaryDark : AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          'SMS OTP: ${authState.backendHealth!.smsGatewayLabel}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: authState.backendHealth!.smsGatewayActive ? AppColors.primaryDark : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

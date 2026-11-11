@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../data/admin_dispatch_repository.dart';
 import '../domain/admin_dispatch_trip.dart';
 
@@ -100,7 +101,7 @@ class DispatchNotifier extends StateNotifier<DispatchState> {
 }
 
 final adminDispatchRepoProvider = Provider<AdminDispatchRepository>((ref) {
-  return AdminDispatchRepository();
+  return AdminDispatchRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final dispatchProvider = StateNotifierProvider<DispatchNotifier, DispatchState>((ref) {

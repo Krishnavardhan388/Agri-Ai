@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/agri_card.dart';
 import '../../../core/widgets/custom_button.dart';
+import '../../voice_assistant/presentation/agri_mitra_voice_screen.dart';
 import '../../voice_assistant/state/voice_assistant_provider.dart';
 import '../domain/crop_diagnosis_result.dart';
 import 'widgets/dosage_calculator_sheet.dart';
@@ -51,8 +53,17 @@ class _DiagnosisResultScreenState extends ConsumerState<DiagnosisResultScreen>
           IconButton(
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
+              final report = 'AGRI AI Diagnosis Report\n'
+                  'Crop: ${result.cropName}\n'
+                  'Condition: ${result.diseaseName} (${result.severity})\n'
+                  'Health Score: ${result.healthScore}/100\n'
+                  'Organic Remedy: ${result.organicTreatments.isNotEmpty ? result.organicTreatments.first : "N/A"}';
+              Clipboard.setData(ClipboardData(text: report));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sharing diagnosis report card...')),
+                const SnackBar(
+                  backgroundColor: AppColors.primaryDark,
+                  content: Text('Diagnosis report copied to clipboard for sharing!'),
+                ),
               );
             },
           ),
@@ -436,10 +447,9 @@ class _DiagnosisResultScreenState extends ConsumerState<DiagnosisResultScreen>
                     text: 'Ask AGRI MITRA',
                     icon: Icons.mic_rounded,
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('AGRI MITRA Voice Assistant will read this diagnosis aloud in Phase 7'),
-                        ),
+                      ref.read(voiceAssistantProvider.notifier).readCropDiagnosisAloud(result);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const AgriMitraVoiceScreen()),
                       );
                     },
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../../crop_doctor/domain/crop_diagnosis_result.dart';
 import '../data/agri_ai_advisory_service.dart';
 import '../data/voice_service.dart';
@@ -273,7 +274,7 @@ final voiceServiceProvider = Provider<VoiceService>((ref) {
 });
 
 final agriAiAdvisoryServiceProvider = Provider<AgriAiAdvisoryService>((ref) {
-  return const AgriAiAdvisoryService();
+  return AgriAiAdvisoryService(apiClient: ref.watch(apiClientProvider));
 });
 
 final voiceAssistantProvider =

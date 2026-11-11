@@ -1,22 +1,21 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/services/firebase_service.dart';
+import '../../../core/services/api_client.dart';
 import '../domain/order_model.dart';
 
 class OrderRepository {
-  FirebaseFirestore? _firestore;
+  final ApiClient _apiClient;
 
   final List<OrderModel> _localOrders = [
     OrderModel(
       id: 'AGRI-1092',
-      customerId: 'cust-priya',
+      customerId: 'user-customer-priya',
       customerName: 'Priya Sharma',
       customerPhone: '+91 98765 12345',
       deliveryAddress: 'Flat 402, Green Meadows, Hanamkonda',
-      farmerId: 'farmer-ramesh',
+      farmerId: 'user-farmer-ramesh',
       farmerName: 'Ramesh Farm, Warangal',
       items: const [
         OrderItemSummary(
-          productId: 'prod-tomato-1',
+          productId: 'PROD-101',
           productTitle: 'Fresh Organic Tomatoes',
           quantityKg: 5.0,
           pricePerKg: 35.0,
@@ -39,11 +38,11 @@ class OrderRepository {
       customerName: 'Anand Rao',
       customerPhone: '+91 98765 99999',
       deliveryAddress: 'Subedari, Kazipet (6 km)',
-      farmerId: 'farmer-ramesh',
+      farmerId: 'user-farmer-ramesh',
       farmerName: 'Ramesh Farm, Warangal',
       items: const [
         OrderItemSummary(
-          productId: 'prod-rice-2',
+          productId: 'PROD-102',
           productTitle: 'Sona Masoori Raw Rice',
           quantityKg: 50.0,
           pricePerKg: 55.0,
@@ -62,66 +61,102 @@ class OrderRepository {
     ),
   ];
 
-  OrderRepository({FirebaseFirestore? firestore}) {
-    if (firestore != null) _firestore = firestore;
-  }
+  OrderRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
-  FirebaseFirestore? get firestore {
-    if (_firestore != null) return _firestore;
-    if (FirebaseService.isInitialized) {
-      _firestore = FirebaseFirestore.instance;
-      return _firestore;
+  OrderModel _fromApiMap(Map<String, dynamic> map) {
+    OrderStatus parsedStatus = OrderStatus.inTransit;
+    try {
+      parsedStatus = OrderStatus.values.byName(map['status']?.toString() ?? 'inTransit');
+    } catch (_) {
+      parsedStatus = OrderStatus.inTransit;
     }
-    return null;
+
+    final qty = (map['quantity_kg'] as num?)?.toDouble() ?? 1.0;
+    final total = (map['total_amount'] as num?)?.toDouble() ?? 0.0;
+    final pricePerKg = qty > 0 ? total / qty : total;
+
+    return OrderModel(
+      id: map['id']?.toString() ?? 'AGRI-NEW',
+      customerId: map['customer_id']?.toString() ?? 'cust-current',
+      customerName: map['buyer_name']?.toString() ?? 'Verified Buyer',
+      customerPhone: map['buyer_phone']?.toString() ?? '',
+      deliveryAddress: map['delivery_address']?.toString() ?? '',
+      farmerId: map['farmer_id']?.toString() ?? 'user-farmer-ramesh',
+      farmerName: map['farmer_name']?.toString() ?? 'Partner Farm',
+      items: [
+        OrderItemSummary(
+          productId: map['product_id']?.toString() ?? '',
+          productTitle: map['product_name']?.toString() ?? 'Farm Produce',
+          quantityKg: qty,
+          pricePerKg: pricePerKg,
+          totalPrice: total,
+        ),
+      ],
+      subtotal: total,
+      discount: 0.0,
+      deliveryFee: 40.0,
+      totalAmount: total,
+      paymentMethod: map['payment_method']?.toString() ?? 'Razorpay UPI',
+      paymentId: map['payment_id']?.toString() ?? 'pay_verified',
+      status: parsedStatus,
+      deliveryOtp: map['delivery_otp']?.toString() ?? '1234',
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+    );
   }
 
-  Future<void> createOrder(OrderModel order) async {
+  Future<OrderModel> createOrder(OrderModel order) async {
     _localOrders.insert(0, order);
 
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        await fs.collection('orders').doc(order.id).set(order.toMap());
-      } catch (_) {}
-    }
+    try {
+      final firstItem = order.items.first;
+      final resp = await _apiClient.post(
+        '/api/v1/orders/create',
+        body: {
+          'product_id': firstItem.productId,
+          'quantity_kg': firstItem.quantityKg,
+          'buyer_name': order.customerName,
+          'buyer_phone': order.customerPhone,
+          'delivery_address': order.deliveryAddress,
+          'customer_id': order.customerId,
+          'payment_method': order.paymentMethod,
+          'payment_id': order.paymentId,
+          'total_amount_override': order.totalAmount,
+        },
+      );
+      if (resp is Map<String, dynamic>) {
+        final serverOrder = _fromApiMap(resp);
+        _localOrders[0] = serverOrder;
+        return serverOrder;
+      }
+    } catch (_) {}
+
+    return order;
   }
 
   Future<List<OrderModel>> getOrdersForCustomer(String customerId) async {
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        final snapshot = await fs
-            .collection('orders')
-            .where('customerId', isEqualTo: customerId)
-            .get();
-
-        if (snapshot.docs.isNotEmpty) {
-          return snapshot.docs
-              .map((doc) => OrderModel.fromMap(doc.data(), doc.id))
-              .toList();
-        }
-      } catch (_) {}
-    }
+    try {
+      final resp = await _apiClient.get('/api/v1/orders');
+      if (resp is List) {
+        return resp
+            .whereType<Map>()
+            .map((e) => _fromApiMap(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (_) {}
 
     return _localOrders;
   }
 
   Future<List<OrderModel>> getOrdersForFarmer(String farmerId) async {
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        final snapshot = await fs
-            .collection('orders')
-            .where('farmerId', isEqualTo: farmerId)
-            .get();
-
-        if (snapshot.docs.isNotEmpty) {
-          return snapshot.docs
-              .map((doc) => OrderModel.fromMap(doc.data(), doc.id))
-              .toList();
-        }
-      } catch (_) {}
-    }
+    try {
+      final resp = await _apiClient.get('/api/v1/orders');
+      if (resp is List) {
+        return resp
+            .whereType<Map>()
+            .map((e) => _fromApiMap(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (_) {}
 
     return _localOrders;
   }
@@ -132,12 +167,11 @@ class OrderRepository {
       _localOrders[index] = _localOrders[index].copyWith(status: newStatus);
     }
 
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        await fs.collection('orders').doc(orderId).update({'status': newStatus.name});
-      } catch (_) {}
-    }
+    try {
+      await _apiClient.patch(
+        '/api/v1/orders/$orderId/status',
+        body: {'status': newStatus.name},
+      );
+    } catch (_) {}
   }
 }
-

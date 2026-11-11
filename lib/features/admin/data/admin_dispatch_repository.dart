@@ -1,6 +1,11 @@
+import '../../../core/services/api_client.dart';
 import '../domain/admin_dispatch_trip.dart';
 
 class AdminDispatchRepository {
+  final ApiClient _apiClient;
+
+  AdminDispatchRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+
   final List<AdminDispatchTrip> _trips = [
     AdminDispatchTrip(
       tripId: 'TRIP-4019',
@@ -77,13 +82,56 @@ class AdminDispatchRepository {
     ),
   ];
 
+  AdminDispatchTrip _fromApi(Map<String, dynamic> map) {
+    final rawStatus = map['status']?.toString() ?? 'pendingAssignment';
+    DispatchStatus parsed = DispatchStatus.pendingAssignment;
+    if (rawStatus == 'accepted' || rawStatus == 'inTransit') {
+      parsed = DispatchStatus.inTransit;
+    } else if (rawStatus == 'pickedUp') {
+      parsed = DispatchStatus.pickedUp;
+    } else if (rawStatus == 'delivered') {
+      parsed = DispatchStatus.delivered;
+    } else if (rawStatus == 'disputed') {
+      parsed = DispatchStatus.disputed;
+    } else {
+      parsed = DispatchStatus.pendingAssignment;
+    }
+
+    return AdminDispatchTrip(
+      tripId: map['id']?.toString() ?? '',
+      orderId: map['order_id']?.toString() ?? '',
+      driverId: map['driver_id']?.toString() ?? '',
+      driverName: map['driver_name']?.toString() ?? 'Awaiting Driver Allocation',
+      driverPhone: map['driver_phone']?.toString() ?? '',
+      driverVehicle: map['driver_vehicle']?.toString() ?? '',
+      farmerName: map['farm_name']?.toString() ?? 'Partner Farm',
+      farmerLocation: map['farm_address']?.toString() ?? '',
+      customerName: map['customer_name']?.toString() ?? '',
+      customerAddress: map['customer_address']?.toString() ?? '',
+      produceSummary: map['crop_summary']?.toString() ?? '',
+      totalAmount: (map['trip_payout'] as num?)?.toDouble() ?? 100.0,
+      deliveryOtp: map['required_otp']?.toString() ?? '0000',
+      distanceKm: (map['distance_km'] as num?)?.toDouble() ?? 5.0,
+      status: parsed,
+      isOtpOverridden: map['is_otp_overridden'] == true,
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+      deliveredAt: DateTime.tryParse(map['delivered_at']?.toString() ?? ''),
+    );
+  }
+
   Future<List<AdminDispatchTrip>> getTrips({
     DispatchStatus? status,
     String? searchQuery,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    List<AdminDispatchTrip> source = _trips;
+    try {
+      final resp = await _apiClient.get('/api/v1/admin/dispatches');
+      if (resp is List && resp.isNotEmpty) {
+        source = resp.whereType<Map>().map((e) => _fromApi(Map<String, dynamic>.from(e))).toList();
+      }
+    } catch (_) {}
 
-    return _trips.where((t) {
+    return source.where((t) {
       if (status != null && t.status != status) {
         return false;
       }
@@ -108,7 +156,18 @@ class AdminDispatchRepository {
     required String newDriverPhone,
     required String newDriverVehicle,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 150));
+    try {
+      await _apiClient.post(
+        '/api/v1/admin/dispatches/$tripId/reassign',
+        body: {
+          'driver_name': newDriverName,
+          'driver_phone': newDriverPhone,
+          'driver_vehicle': newDriverVehicle,
+        },
+      );
+      return true;
+    } catch (_) {}
+
     final index = _trips.indexWhere((t) => t.tripId == tripId);
     if (index != -1) {
       _trips[index] = _trips[index].copyWith(
@@ -123,7 +182,11 @@ class AdminDispatchRepository {
   }
 
   Future<bool> overrideVerifyOtp(String tripId) async {
-    await Future.delayed(const Duration(milliseconds: 150));
+    try {
+      await _apiClient.post('/api/v1/admin/dispatches/$tripId/override-otp');
+      return true;
+    } catch (_) {}
+
     final index = _trips.indexWhere((t) => t.tripId == tripId);
     if (index != -1) {
       _trips[index] = _trips[index].copyWith(

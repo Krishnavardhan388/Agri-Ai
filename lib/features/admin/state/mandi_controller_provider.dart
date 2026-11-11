@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../data/admin_mandi_controller_repository.dart';
 import '../domain/admin_mandi_update.dart';
 
@@ -74,7 +75,7 @@ class MandiControllerNotifier extends StateNotifier<MandiControllerState> {
 }
 
 final adminMandiRepoProvider = Provider<AdminMandiControllerRepository>((ref) {
-  return AdminMandiControllerRepository();
+  return AdminMandiControllerRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final mandiControllerProvider = StateNotifierProvider<MandiControllerNotifier, MandiControllerState>((ref) {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../data/delivery_repository.dart';
 import '../data/map_navigation_service.dart';
 import '../domain/delivery_task_model.dart';
@@ -193,7 +194,7 @@ class DeliveryNotifier extends StateNotifier<DeliveryState> {
 }
 
 final deliveryRepositoryProvider = Provider<DeliveryRepository>((ref) {
-  return DeliveryRepository();
+  return DeliveryRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final mapNavigationServiceProvider = Provider<MapNavigationService>((ref) {

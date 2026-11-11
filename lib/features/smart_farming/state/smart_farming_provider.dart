@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
+import '../../../core/services/api_client.dart';
 import '../../mandi_prices/data/mandi_service.dart';
 import '../../mandi_prices/domain/mandi_crop_model.dart';
 import '../data/location_service.dart';
@@ -10,16 +12,18 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 });
 
 final weatherServiceProvider = Provider<WeatherService>((ref) {
-  return WeatherService();
+  return WeatherService(apiClient: ref.watch(apiClientProvider));
 });
 
 final mandiServiceProvider = Provider<MandiService>((ref) {
-  return MandiService();
+  return MandiService(apiClient: ref.watch(apiClientProvider));
 });
 
 class SmartFarmingState {
   final FarmerLocation location;
   final WeatherForecast weather;
+  final SatelliteRadarData? radar;
+  final List<Map<String, dynamic>> broadcasts;
   final List<MandiCropItem> mandiCrops;
   final String selectedCategory;
   final String searchQuery;
@@ -32,6 +36,8 @@ class SmartFarmingState {
   const SmartFarmingState({
     required this.location,
     required this.weather,
+    this.radar,
+    this.broadcasts = const [],
     this.mandiCrops = const [],
     this.selectedCategory = 'All',
     this.searchQuery = '',
@@ -45,6 +51,8 @@ class SmartFarmingState {
   SmartFarmingState copyWith({
     FarmerLocation? location,
     WeatherForecast? weather,
+    SatelliteRadarData? radar,
+    List<Map<String, dynamic>>? broadcasts,
     List<MandiCropItem>? mandiCrops,
     String? selectedCategory,
     String? searchQuery,
@@ -57,6 +65,8 @@ class SmartFarmingState {
     return SmartFarmingState(
       location: location ?? this.location,
       weather: weather ?? this.weather,
+      radar: radar ?? this.radar,
+      broadcasts: broadcasts ?? this.broadcasts,
       mandiCrops: mandiCrops ?? this.mandiCrops,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -73,15 +83,18 @@ class SmartFarmingNotifier extends StateNotifier<SmartFarmingState> {
   final LocationService locationService;
   final WeatherService weatherService;
   final MandiService mandiService;
+  final ApiClient? apiClient;
 
   SmartFarmingNotifier({
     required this.locationService,
     required this.weatherService,
     required this.mandiService,
+    this.apiClient,
   }) : super(
           SmartFarmingState(
             location: FarmerLocation.defaultLocation(),
             weather: WeatherForecast.initial(),
+            radar: SatelliteRadarData.initial(),
           ),
         ) {
     init();
@@ -97,10 +110,23 @@ class SmartFarmingNotifier extends StateNotifier<SmartFarmingState> {
     try {
       final loc = await locationService.getCurrentFarmerLocation();
       final weather = await weatherService.getWeatherForLocation(loc);
+      final radar = await weatherService.getSatelliteRadar(loc);
+
+      List<Map<String, dynamic>> alerts = state.broadcasts;
+      if (apiClient != null) {
+        try {
+          final resp = await apiClient!.get('/api/v1/admin/broadcasts');
+          if (resp is List) {
+            alerts = resp.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          }
+        } catch (_) {}
+      }
 
       state = state.copyWith(
         location: loc,
         weather: weather,
+        radar: radar,
+        broadcasts: alerts,
         isLocating: false,
       );
     } catch (_) {
@@ -145,10 +171,12 @@ final smartFarmingProvider =
   final locSvc = ref.watch(locationServiceProvider);
   final weatherSvc = ref.watch(weatherServiceProvider);
   final mandiSvc = ref.watch(mandiServiceProvider);
+  final apiClient = ref.watch(apiClientProvider);
 
   return SmartFarmingNotifier(
     locationService: locSvc,
     weatherService: weatherSvc,
     mandiService: mandiSvc,
+    apiClient: apiClient,
   );
 });

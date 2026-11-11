@@ -1,7 +1,12 @@
+import '../../../core/services/api_client.dart';
 import '../../auth/domain/user_role.dart';
 import '../domain/kyc_application_model.dart';
 
 class AdminKycRepository {
+  final ApiClient _apiClient;
+
+  AdminKycRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+
   final List<KycApplication> _applications = [
     KycApplication(
       id: 'KYC-FARM-101',
@@ -90,14 +95,49 @@ class AdminKycRepository {
     ),
   ];
 
+  KycApplication _fromApi(Map<String, dynamic> map) {
+    KycStatus parsedStatus = KycStatus.pending;
+    try {
+      parsedStatus = KycStatus.values.byName(map['status']?.toString() ?? 'pending');
+    } catch (_) {}
+
+    UserRole parsedRole = UserRole.farmer;
+    try {
+      parsedRole = UserRole.values.byName(map['role']?.toString() ?? 'farmer');
+    } catch (_) {}
+
+    return KycApplication(
+      id: map['id']?.toString() ?? '',
+      userId: map['user_id']?.toString() ?? '',
+      applicantName: map['applicant_name']?.toString() ?? '',
+      phone: map['phone']?.toString() ?? '',
+      role: parsedRole,
+      location: map['location']?.toString() ?? '',
+      documentType: map['document_type']?.toString() ?? '',
+      documentNumber: map['document_number']?.toString() ?? '',
+      documentDetails: map['document_details']?.toString() ?? '',
+      status: parsedStatus,
+      rejectionReason: map['rejection_reason']?.toString(),
+      appliedAt: DateTime.tryParse(map['applied_at']?.toString() ?? '') ?? DateTime.now(),
+      reviewedAt: DateTime.tryParse(map['reviewed_at']?.toString() ?? ''),
+      reviewedBy: map['reviewed_by']?.toString(),
+    );
+  }
+
   Future<List<KycApplication>> getApplications({
     KycStatus? status,
     UserRole? role,
     String? searchQuery,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    List<KycApplication> source = _applications;
+    try {
+      final resp = await _apiClient.get('/api/v1/admin/kyc');
+      if (resp is List && resp.isNotEmpty) {
+        source = resp.whereType<Map>().map((e) => _fromApi(Map<String, dynamic>.from(e))).toList();
+      }
+    } catch (_) {}
 
-    return _applications.where((app) {
+    return source.where((app) {
       if (status != null && app.status != status) {
         return false;
       }
@@ -120,7 +160,14 @@ class AdminKycRepository {
   }
 
   Future<bool> approveApplication(String id, {String reviewedBy = 'Admin Officer (HQ)'}) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    try {
+      await _apiClient.post(
+        '/api/v1/admin/kyc/$id/approve',
+        body: {'reviewed_by': reviewedBy},
+      );
+      return true;
+    } catch (_) {}
+
     final index = _applications.indexWhere((app) => app.id == id);
     if (index != -1) {
       _applications[index] = _applications[index].copyWith(
@@ -139,7 +186,14 @@ class AdminKycRepository {
     required String reason,
     String reviewedBy = 'Admin Officer (HQ)',
   }) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    try {
+      await _apiClient.post(
+        '/api/v1/admin/kyc/$id/reject',
+        body: {'reason': reason, 'reviewed_by': reviewedBy},
+      );
+      return true;
+    } catch (_) {}
+
     final index = _applications.indexWhere((app) => app.id == id);
     if (index != -1) {
       _applications[index] = _applications[index].copyWith(

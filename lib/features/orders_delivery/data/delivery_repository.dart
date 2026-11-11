@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/services/firebase_service.dart';
+import '../../../core/services/api_client.dart';
 import '../domain/delivery_task_model.dart';
 
 class DeliveryRepository {
-  FirebaseFirestore? _firestore;
+  final ApiClient _apiClient;
 
   double _walletBalance = 1180.0;
   int _tripsCompletedCount = 11;
@@ -72,27 +71,6 @@ class DeliveryRepository {
       status: DeliveryTaskStatus.available,
       createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
     ),
-    DeliveryTask(
-      id: 'TASK-104',
-      orderId: 'AGRI-1099',
-      farmName: 'Godavari Organic Turmeric',
-      farmAddress: 'Mulugu Road, Warangal',
-      farmLat: 18.0315,
-      farmLng: 79.6180,
-      farmPhone: '+91 99890 33445',
-      customerName: 'Green Grocers Hub',
-      customerAddress: 'Collectorate Colony, Subedari',
-      customerLat: 17.9940,
-      customerLng: 79.5390,
-      customerPhone: '+91 97000 44556',
-      cropSummary: '15 kg Pure Organic Turmeric Powder',
-      totalWeightKg: 15.0,
-      distanceKm: 5.5,
-      tripPayout: 85.0,
-      requiredOtp: '6408',
-      status: DeliveryTaskStatus.available,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
-    ),
   ];
 
   final List<DeliveryWalletRecord> _transactions = [
@@ -112,94 +90,101 @@ class DeliveryRepository {
       timestamp: DateTime.now().subtract(const Duration(hours: 3)),
       isCredit: true,
     ),
-    DeliveryWalletRecord(
-      id: 'TXN-403',
-      title: 'Trip Payout #TASK-100',
-      orderId: 'AGRI-1080',
-      amount: 80.0,
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      isCredit: true,
-    ),
-    DeliveryWalletRecord(
-      id: 'TXN-404',
-      title: 'Peak Morning Incentive Bonus',
-      amount: 50.0,
-      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-      isCredit: true,
-    ),
   ];
 
-  DeliveryRepository({FirebaseFirestore? firestore}) {
-    if (firestore != null) _firestore = firestore;
-  }
+  DeliveryRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
-  FirebaseFirestore? get firestore {
-    if (_firestore != null) return _firestore;
-    if (FirebaseService.isInitialized) {
-      _firestore = FirebaseFirestore.instance;
-      return _firestore;
+  DeliveryTask _taskFromApi(Map<String, dynamic> map) {
+    DeliveryTaskStatus parsed = DeliveryTaskStatus.available;
+    try {
+      parsed = DeliveryTaskStatus.values.byName(map['status']?.toString() ?? 'available');
+    } catch (_) {
+      parsed = DeliveryTaskStatus.available;
     }
-    return null;
+    return DeliveryTask(
+      id: map['id']?.toString() ?? 'TASK-0',
+      orderId: map['order_id']?.toString() ?? '',
+      farmName: map['farm_name']?.toString() ?? 'Partner Farm',
+      farmAddress: map['farm_address']?.toString() ?? '',
+      farmLat: (map['farm_lat'] as num?)?.toDouble() ?? 17.9689,
+      farmLng: (map['farm_lng'] as num?)?.toDouble() ?? 79.5941,
+      farmPhone: map['farm_phone']?.toString() ?? '',
+      customerName: map['customer_name']?.toString() ?? 'Customer',
+      customerAddress: map['customer_address']?.toString() ?? '',
+      customerLat: (map['customer_lat'] as num?)?.toDouble() ?? 18.0072,
+      customerLng: (map['customer_lng'] as num?)?.toDouble() ?? 79.5583,
+      customerPhone: map['customer_phone']?.toString() ?? '',
+      cropSummary: map['crop_summary']?.toString() ?? '',
+      totalWeightKg: (map['total_weight_kg'] as num?)?.toDouble() ?? 5.0,
+      distanceKm: (map['distance_km'] as num?)?.toDouble() ?? 5.0,
+      tripPayout: (map['trip_payout'] as num?)?.toDouble() ?? 90.0,
+      requiredOtp: map['required_otp']?.toString() ?? '0000',
+      status: parsed,
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+      pickedUpAt: DateTime.tryParse(map['picked_up_at']?.toString() ?? ''),
+      deliveredAt: DateTime.tryParse(map['delivered_at']?.toString() ?? ''),
+    );
   }
 
   Future<List<DeliveryTask>> getTasks() async {
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        final snapshot = await fs.collection('delivery_tasks').get();
-        if (snapshot.docs.isNotEmpty) {
-          return snapshot.docs
-              .map((doc) => DeliveryTask.fromMap(doc.data(), doc.id))
-              .toList();
-        }
-      } catch (_) {}
-    }
+    try {
+      final resp = await _apiClient.get('/api/v1/delivery/tasks');
+      if (resp is List && resp.isNotEmpty) {
+        return resp
+            .whereType<Map>()
+            .map((e) => _taskFromApi(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (_) {}
     return List.unmodifiable(_tasks);
   }
 
   Future<DeliveryTask?> acceptTask(String taskId) async {
+    try {
+      final resp = await _apiClient.post('/api/v1/delivery/tasks/$taskId/accept');
+      if (resp is Map<String, dynamic>) {
+        return _taskFromApi(resp);
+      }
+    } catch (_) {}
+
     final index = _tasks.indexWhere((t) => t.id == taskId);
     if (index == -1) return null;
-
-    final updated = _tasks[index].copyWith(
-      status: DeliveryTaskStatus.accepted,
-    );
+    final updated = _tasks[index].copyWith(status: DeliveryTaskStatus.accepted);
     _tasks[index] = updated;
-
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        await fs.collection('delivery_tasks').doc(taskId).update({
-          'status': DeliveryTaskStatus.accepted.name,
-        });
-      } catch (_) {}
-    }
     return updated;
   }
 
   Future<DeliveryTask?> markTaskPickedUp(String taskId) async {
+    try {
+      final resp = await _apiClient.post('/api/v1/delivery/tasks/$taskId/pickup');
+      if (resp is Map<String, dynamic>) {
+        return _taskFromApi(resp);
+      }
+    } catch (_) {}
+
     final index = _tasks.indexWhere((t) => t.id == taskId);
     if (index == -1) return null;
-
     final updated = _tasks[index].copyWith(
       status: DeliveryTaskStatus.pickedUp,
       pickedUpAt: DateTime.now(),
     );
     _tasks[index] = updated;
-
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        await fs.collection('delivery_tasks').doc(taskId).update({
-          'status': DeliveryTaskStatus.pickedUp.name,
-          'pickedUpAt': updated.pickedUpAt?.toIso8601String(),
-        });
-      } catch (_) {}
-    }
     return updated;
   }
 
   Future<bool> verifyAndCompleteTask(String taskId, String otp) async {
+    try {
+      final resp = await _apiClient.post(
+        '/api/v1/delivery/tasks/$taskId/verify-otp',
+        body: {'otp': otp.trim()},
+      );
+      if (resp is Map<String, dynamic> && resp['verified'] == true) {
+        return true;
+      }
+    } on ApiException catch (e) {
+      if (e.fromServer) return false;
+    } catch (_) {}
+
     final index = _tasks.indexWhere((t) => t.id == taskId);
     if (index == -1) return false;
 
@@ -209,16 +194,12 @@ class DeliveryRepository {
     }
 
     final now = DateTime.now();
-    final updated = task.copyWith(
+    _tasks[index] = task.copyWith(
       status: DeliveryTaskStatus.delivered,
       deliveredAt: now,
     );
-    _tasks[index] = updated;
-
-    // Credit earnings
     _walletBalance += task.tripPayout;
     _tripsCompletedCount += 1;
-
     _transactions.insert(
       0,
       DeliveryWalletRecord(
@@ -230,30 +211,61 @@ class DeliveryRepository {
         isCredit: true,
       ),
     );
-
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        await fs.collection('delivery_tasks').doc(taskId).update({
-          'status': DeliveryTaskStatus.delivered.name,
-          'deliveredAt': now.toIso8601String(),
-        });
-      } catch (_) {}
-    }
     return true;
   }
 
-  Future<double> getWalletBalance() async => _walletBalance;
+  Future<double> getWalletBalance() async {
+    try {
+      final resp = await _apiClient.get('/api/v1/delivery/wallet');
+      if (resp is Map<String, dynamic> && resp['balance'] != null) {
+        return (resp['balance'] as num).toDouble();
+      }
+    } catch (_) {}
+    return _walletBalance;
+  }
 
-  Future<int> getTripsCompletedCount() async => _tripsCompletedCount;
+  Future<int> getTripsCompletedCount() async {
+    try {
+      final resp = await _apiClient.get('/api/v1/delivery/wallet');
+      if (resp is Map<String, dynamic> && resp['trips_completed'] != null) {
+        return (resp['trips_completed'] as num).toInt();
+      }
+    } catch (_) {}
+    return _tripsCompletedCount;
+  }
 
   Future<List<DeliveryWalletRecord>> getTransactions() async {
+    try {
+      final resp = await _apiClient.get('/api/v1/delivery/wallet');
+      if (resp is Map<String, dynamic> && resp['transactions'] is List) {
+        return (resp['transactions'] as List).whereType<Map>().map((t) {
+          return DeliveryWalletRecord(
+            id: t['id']?.toString() ?? '',
+            title: t['title']?.toString() ?? 'Payout',
+            orderId: t['order_id']?.toString(),
+            amount: (t['amount'] as num?)?.toDouble() ?? 0.0,
+            timestamp: DateTime.tryParse(t['created_at']?.toString() ?? '') ?? DateTime.now(),
+            isCredit: t['is_credit'] != false,
+            status: t['status']?.toString() ?? 'Completed',
+          );
+        }).toList();
+      }
+    } catch (_) {}
     return List.unmodifiable(_transactions);
   }
 
   Future<bool> requestBankPayout(double amount, String upiOrBank) async {
-    if (amount <= 0 || amount > _walletBalance) return false;
+    try {
+      await _apiClient.post(
+        '/api/v1/delivery/payout',
+        body: {'amount': amount, 'upi_or_bank': upiOrBank},
+      );
+      return true;
+    } on ApiException catch (e) {
+      if (e.fromServer) return false;
+    } catch (_) {}
 
+    if (amount <= 0 || amount > _walletBalance) return false;
     _walletBalance -= amount;
     _transactions.insert(
       0,
@@ -269,4 +281,3 @@ class DeliveryRepository {
     return true;
   }
 }
-

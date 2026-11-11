@@ -1,6 +1,11 @@
+import '../../../core/services/api_client.dart';
 import '../domain/admin_marketplace_item.dart';
 
 class AdminMarketplaceRepository {
+  final ApiClient _apiClient;
+
+  AdminMarketplaceRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+
   final List<AdminProductItem> _items = [
     const AdminProductItem(
       id: 'prod-tomato-1',
@@ -77,14 +82,41 @@ class AdminMarketplaceRepository {
     ),
   ];
 
+  AdminProductItem _fromApi(Map<String, dynamic> map) {
+    ProductModerationStatus parsed = ProductModerationStatus.active;
+    try {
+      parsed = ProductModerationStatus.values.byName(map['status']?.toString() ?? 'active');
+    } catch (_) {}
+
+    return AdminProductItem(
+      id: map['id']?.toString() ?? '',
+      farmerName: map['farmer_name']?.toString() ?? 'Partner Farmer',
+      farmerLocation: map['farmer_location']?.toString() ?? 'Telangana',
+      title: map['name']?.toString() ?? 'Farm Produce',
+      category: map['category']?.toString() ?? 'Vegetables',
+      pricePerKg: (map['price_per_kg'] as num?)?.toDouble() ?? 35.0,
+      mandiBenchmarkPerKg: (map['mandi_benchmark'] as num?)?.toDouble() ?? 32.0,
+      stockKg: (map['available_kg'] as num?)?.toDouble() ?? 0.0,
+      isOrganic: map['is_organic'] == true,
+      status: parsed,
+      moderationNote: map['moderation_note']?.toString(),
+    );
+  }
+
   Future<List<AdminProductItem>> getProducts({
     ProductModerationStatus? status,
     String? searchQuery,
     bool? onlyOrganic,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    List<AdminProductItem> source = _items;
+    try {
+      final resp = await _apiClient.get('/api/v1/marketplace/products');
+      if (resp is List && resp.isNotEmpty) {
+        source = resp.whereType<Map>().map((e) => _fromApi(Map<String, dynamic>.from(e))).toList();
+      }
+    } catch (_) {}
 
-    return _items.where((p) {
+    return source.where((p) {
       if (status != null && p.status != status) {
         return false;
       }
@@ -110,7 +142,14 @@ class AdminMarketplaceRepository {
     ProductModerationStatus status, {
     String? note,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 150));
+    try {
+      await _apiClient.patch(
+        '/api/v1/marketplace/products/$id',
+        body: {'status': status.name, 'moderation_note': ?note},
+      );
+      return true;
+    } catch (_) {}
+
     final index = _items.indexWhere((p) => p.id == id);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
@@ -123,7 +162,14 @@ class AdminMarketplaceRepository {
   }
 
   Future<bool> updateStock(String id, double newStockKg) async {
-    await Future.delayed(const Duration(milliseconds: 150));
+    try {
+      await _apiClient.patch(
+        '/api/v1/marketplace/products/$id',
+        body: {'available_kg': newStockKg},
+      );
+      return true;
+    } catch (_) {}
+
     final index = _items.indexWhere((p) => p.id == id);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
@@ -136,15 +182,22 @@ class AdminMarketplaceRepository {
   }
 
   Future<bool> toggleOrganicStatus(String id) async {
-    await Future.delayed(const Duration(milliseconds: 150));
     final index = _items.indexWhere((p) => p.id == id);
+    bool nextVal = true;
     if (index != -1) {
-      _items[index] = _items[index].copyWith(
-        isOrganic: !_items[index].isOrganic,
+      nextVal = !_items[index].isOrganic;
+      _items[index] = _items[index].copyWith(isOrganic: nextVal);
+    }
+
+    try {
+      await _apiClient.patch(
+        '/api/v1/marketplace/products/$id',
+        body: {'is_organic': nextVal},
       );
       return true;
-    }
-    return false;
+    } catch (_) {}
+
+    return index != -1;
   }
 
   int getPriceAnomalyCount() {

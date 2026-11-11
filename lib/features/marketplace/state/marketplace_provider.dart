@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../data/order_repository.dart';
 import '../data/product_repository.dart';
 import '../data/razorpay_payment_service.dart';
@@ -8,11 +9,11 @@ import '../domain/order_model.dart';
 import '../domain/product_model.dart';
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
-  return ProductRepository();
+  return ProductRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
-  return OrderRepository();
+  return OrderRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final razorpayServiceProvider = Provider<RazorpayPaymentService>((ref) {
@@ -237,9 +238,9 @@ class OrdersNotifier extends StateNotifier<OrdersState> {
       createdAt: DateTime.now(),
     );
 
-    await _orderRepo.createOrder(newOrder);
+    final savedOrder = await _orderRepo.createOrder(newOrder);
     await refreshAllOrders();
-    return newOrder;
+    return savedOrder;
   }
 
   Future<void> updateStatus(String orderId, OrderStatus status) async {

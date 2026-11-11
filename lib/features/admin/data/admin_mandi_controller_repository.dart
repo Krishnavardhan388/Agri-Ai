@@ -1,6 +1,11 @@
+import '../../../core/services/api_client.dart';
 import '../domain/admin_mandi_update.dart';
 
 class AdminMandiControllerRepository {
+  final ApiClient _apiClient;
+
+  AdminMandiControllerRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+
   final List<AdminMandiCropRate> _rates = [
     AdminMandiCropRate(
       id: 'mandi-cotton-1',
@@ -65,7 +70,26 @@ class AdminMandiControllerRepository {
   ];
 
   Future<List<AdminMandiCropRate>> getRates() async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    try {
+      final resp = await _apiClient.get('/api/v1/mandi/rates');
+      if (resp is List && resp.isNotEmpty) {
+        return resp.whereType<Map>().map((m) {
+          final trend = m['trend']?.toString() ?? 'up';
+          return AdminMandiCropRate(
+            id: m['id']?.toString() ?? '',
+            cropName: m['crop_name']?.toString() ?? '',
+            marketName: m['market_yard']?.toString() ?? 'APMC Yard',
+            district: m['market_yard']?.toString().split(' ').first ?? 'Telangana',
+            modalPricePerQuintal: (m['modal_price'] as num?)?.toDouble() ?? 0.0,
+            minPricePerQuintal: (m['min_price'] as num?)?.toDouble() ?? 0.0,
+            maxPricePerQuintal: (m['max_price'] as num?)?.toDouble() ?? 0.0,
+            trendPercentage: (m['price_change'] as num?)?.toDouble() ?? 1.5,
+            isRising: trend.toLowerCase() != 'down',
+            lastBroadcastAt: DateTime.tryParse(m['last_updated']?.toString() ?? '') ?? DateTime.now(),
+          );
+        }).toList();
+      }
+    } catch (_) {}
     return List.unmodifiable(_rates);
   }
 
@@ -75,7 +99,18 @@ class AdminMandiControllerRepository {
     double? minPrice,
     double? maxPrice,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 150));
+    try {
+      await _apiClient.put(
+        '/api/v1/mandi/rates/$id',
+        body: {
+          'modal_price': newModalPrice,
+          'min_price': ?minPrice,
+          'max_price': ?maxPrice,
+        },
+      );
+      return true;
+    } catch (_) {}
+
     final index = _rates.indexWhere((r) => r.id == id);
     if (index != -1) {
       final old = _rates[index];
@@ -96,7 +131,18 @@ class AdminMandiControllerRepository {
   }
 
   Future<bool> broadcastRateToFarmers(String id) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    try {
+      await _apiClient.post(
+        '/api/v1/admin/broadcasts',
+        body: {
+          'district': 'All Telangana Mandis',
+          'crop': id,
+          'advisory': 'Updated official APMC rate benchmark ($id) published to AGRI AI Marketplaces.',
+        },
+      );
+      return true;
+    } catch (_) {}
+
     final index = _rates.indexWhere((r) => r.id == id);
     if (index != -1) {
       _rates[index] = _rates[index].copyWith(lastBroadcastAt: DateTime.now());

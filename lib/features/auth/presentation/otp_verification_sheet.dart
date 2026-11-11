@@ -104,14 +104,45 @@ class _OtpVerificationSheetState extends ConsumerState<OtpVerificationSheet> {
           const SizedBox(height: 8),
 
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
+              color: authState.smsDispatchedReal
+                  ? AppColors.greenSurface
+                  : const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: authState.smsDispatchedReal
+                    ? AppColors.primaryGreen.withValues(alpha: 0.4)
+                    : AppColors.earthAmber.withValues(alpha: 0.6),
+              ),
             ),
-            child: const Text(
-              '💡 Dev Hint: Use code 123456 for instant testing',
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+            child: Column(
+              children: [
+                Text(
+                  authState.smsDispatchedReal
+                      ? '✅ Live SMS delivered via Fast2SMS Gateway'
+                      : '⚠️ SMS Gateway Notice: ${authState.smsStatusMessage ?? "Configure FAST2SMS_API_KEY in server env"}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: authState.smsDispatchedReal ? AppColors.primaryDark : const Color(0xFF795548),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!authState.smsDispatchedReal && authState.sandboxOtpPreview != null) ...[
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    'Server Verification Code: ${authState.sandboxOtpPreview}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 24),

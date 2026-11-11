@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/providers/core_providers.dart' show apiClientProvider;
 import '../../auth/state/auth_provider.dart';
 import '../data/diagnosis_history_repository.dart';
 import '../data/gemini_crop_doctor_service.dart';
@@ -17,7 +18,8 @@ final geminiServiceProvider = Provider<GeminiCropDoctorService>((ref) {
 
 final diagnosisHistoryRepositoryProvider = Provider<DiagnosisHistoryRepository>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return DiagnosisHistoryRepository(prefs);
+  final apiClient = ref.watch(apiClientProvider);
+  return DiagnosisHistoryRepository(prefs, apiClient: apiClient);
 });
 
 class CropDoctorState {

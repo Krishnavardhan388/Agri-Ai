@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../../auth/domain/user_role.dart';
 import '../data/admin_kyc_repository.dart';
 import '../domain/kyc_application_model.dart';
@@ -107,7 +108,7 @@ class KycNotifier extends StateNotifier<KycState> {
 }
 
 final adminKycRepoProvider = Provider<AdminKycRepository>((ref) {
-  return AdminKycRepository();
+  return AdminKycRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final kycProvider = StateNotifierProvider<KycNotifier, KycState>((ref) {

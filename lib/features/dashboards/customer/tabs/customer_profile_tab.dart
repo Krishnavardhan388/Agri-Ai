@@ -70,15 +70,42 @@ class CustomerProfileTab extends ConsumerWidget {
             _OptionCard(
               icon: Icons.location_on_outlined,
               title: 'Saved Delivery Addresses',
-              subtitle: 'Home: Flat 402, Green Meadows, Hanamkonda',
-              onTap: () {},
+              subtitle: authState.user?.location ?? 'Home: Flat 402, Green Meadows, Hanamkonda',
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Saved Delivery Address'),
+                    content: Text(
+                      'Primary Drop Address:\n${authState.user?.location ?? "Flat 402, Green Meadows, Hanamkonda, Telangana"}',
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 10),
             _OptionCard(
               icon: Icons.payment_outlined,
               title: 'Payment Methods & UPI',
-              subtitle: 'Google Pay / PhonePe / Paytm linked',
-              onTap: () {},
+              subtitle: 'Google Pay / PhonePe / Paytm via Razorpay',
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Linked Payment Gateways'),
+                    content: const Text(
+                      '• Razorpay Instant UPI (GPay, PhonePe, Paytm)\n'
+                      '• Escrow protection: Farmer & driver settle only after 4-digit OTP handover.',
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 10),
             _OptionCard(
@@ -96,7 +123,21 @@ class CustomerProfileTab extends ConsumerWidget {
               icon: Icons.support_agent_rounded,
               title: 'Customer Care & FAQ',
               subtitle: 'Need help with an order?',
-              onTap: () {},
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('AGRI AI Consumer Support'),
+                    content: const Text(
+                      'Direct Farm-to-Door Quality Guarantee:\n'
+                      'If fresh produce is damaged in transit, decline the 4-digit delivery OTP and contact support at support@agriai.in.',
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 24),
 

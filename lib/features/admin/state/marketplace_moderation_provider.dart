@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../data/admin_marketplace_repository.dart';
 import '../domain/admin_marketplace_item.dart';
 
@@ -130,7 +131,7 @@ class MarketplaceModerationNotifier extends StateNotifier<MarketplaceModerationS
 }
 
 final adminMarketplaceRepoProvider = Provider<AdminMarketplaceRepository>((ref) {
-  return AdminMarketplaceRepository();
+  return AdminMarketplaceRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final marketplaceModerationProvider = StateNotifierProvider<MarketplaceModerationNotifier, MarketplaceModerationState>((ref) {

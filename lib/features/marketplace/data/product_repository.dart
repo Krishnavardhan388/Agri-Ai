@@ -1,14 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/services/firebase_service.dart';
+import '../../../core/services/api_client.dart';
 import '../domain/product_model.dart';
 
 class ProductRepository {
-  FirebaseFirestore? _firestore;
+  final ApiClient _apiClient;
 
   final List<ProductModel> _localCatalog = [
     const ProductModel(
-      id: 'prod-tomato-1',
-      farmerId: 'farmer-ramesh',
+      id: 'PROD-101',
+      farmerId: 'user-farmer-ramesh',
       farmerName: 'Ramesh Farm, Warangal',
       farmerLocation: 'Village Nallabelli (3.2 km)',
       title: 'Fresh Organic Tomatoes',
@@ -23,8 +22,8 @@ class ProductRepository {
       isOrganic: true,
     ),
     const ProductModel(
-      id: 'prod-rice-2',
-      farmerId: 'farmer-krishna',
+      id: 'PROD-102',
+      farmerId: 'user-farmer-ramesh',
       farmerName: 'Krishna Valley Farms',
       farmerLocation: 'Parkal, Warangal (14 km)',
       title: 'Sona Masoori Raw Rice',
@@ -39,7 +38,7 @@ class ProductRepository {
       isOrganic: true,
     ),
     const ProductModel(
-      id: 'prod-onion-3',
+      id: 'PROD-104',
       farmerId: 'farmer-govind',
       farmerName: 'Govind Rao Farms',
       farmerLocation: 'Hanamkonda Rural (5 km)',
@@ -55,8 +54,8 @@ class ProductRepository {
       isOrganic: true,
     ),
     const ProductModel(
-      id: 'prod-cotton-4',
-      farmerId: 'farmer-ramesh',
+      id: 'PROD-105',
+      farmerId: 'user-farmer-ramesh',
       farmerName: 'Ramesh Farm, Warangal',
       farmerLocation: 'Village Nallabelli (3.2 km)',
       title: 'Premium Raw Cotton (Kapas)',
@@ -72,51 +71,82 @@ class ProductRepository {
     ),
   ];
 
-  ProductRepository({FirebaseFirestore? firestore}) {
-    if (firestore != null) _firestore = firestore;
-  }
+  ProductRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
-  FirebaseFirestore? get firestore {
-    if (_firestore != null) return _firestore;
-    if (FirebaseService.isInitialized) {
-      _firestore = FirebaseFirestore.instance;
-      return _firestore;
-    }
-    return null;
+  ProductModel _fromApiMap(Map<String, dynamic> map) {
+    return ProductModel(
+      id: map['id']?.toString() ?? '',
+      farmerId: map['farmer_id']?.toString() ?? 'user-farmer-ramesh',
+      farmerName: map['farmer_name']?.toString() ?? 'Ramesh Farm',
+      farmerLocation: map['farmer_location']?.toString() ?? 'Warangal',
+      title: map['name']?.toString() ?? map['title']?.toString() ?? 'Farm Produce',
+      description: map['description']?.toString() ?? 'Fresh harvest directly from farm.',
+      category: map['category']?.toString() ?? 'Vegetables',
+      pricePerKg: (map['price_per_kg'] as num?)?.toDouble() ?? 35.0,
+      originalPricePerKg: (map['mandi_benchmark'] as num?)?.toDouble() ?? 45.0,
+      availableStockKg: (map['available_kg'] as num?)?.toDouble() ?? 100.0,
+      harvestDate: map['harvest_date']?.toString() ?? 'Harvested Today',
+      rating: (map['rating'] as num?)?.toDouble() ?? 4.8,
+      totalReviews: (map['review_count'] as num?)?.toInt() ?? 1,
+      isOrganic: map['is_organic'] == true,
+    );
   }
 
   Future<List<ProductModel>> getProducts({String category = 'All', String query = ''}) async {
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        final snapshot = await fs.collection('products').get();
-        if (snapshot.docs.isNotEmpty) {
-          final cloudProducts = snapshot.docs
-              .map((doc) => ProductModel.fromMap(doc.data(), doc.id))
-              .toList();
+    try {
+      final params = <String, String>{};
+      if (category.isNotEmpty && category != 'All' && category != 'All Items') {
+        params['category'] = category;
+      }
+      if (query.trim().isNotEmpty) {
+        params['q'] = query.trim();
+      }
 
-          return _filterList(cloudProducts, category, query);
-        }
-      } catch (_) {}
-    }
+      final resp = await _apiClient.get('/api/v1/marketplace/products', queryParameters: params);
+      if (resp is List) {
+        final cloudProducts = resp
+            .whereType<Map>()
+            .map((e) => _fromApiMap(Map<String, dynamic>.from(e)))
+            .toList();
+        return cloudProducts;
+      }
+    } catch (_) {}
 
     return _filterList(_localCatalog, category, query);
   }
 
-  Future<void> addProduct(ProductModel product) async {
+  Future<ProductModel> addProduct(ProductModel product) async {
     _localCatalog.insert(0, product);
 
-    final fs = firestore;
-    if (FirebaseService.isInitialized && fs != null) {
-      try {
-        await fs.collection('products').doc(product.id).set(product.toMap());
-      } catch (_) {}
-    }
+    try {
+      final resp = await _apiClient.post(
+        '/api/v1/marketplace/products',
+        body: {
+          'name': product.title,
+          'description': product.description,
+          'category': product.category,
+          'price_per_kg': product.pricePerKg,
+          'mandi_benchmark': product.originalPricePerKg,
+          'available_kg': product.availableStockKg,
+          'farmer_id': product.farmerId,
+          'farmer_name': product.farmerName,
+          'farmer_location': product.farmerLocation,
+          'farmer_phone': '+91 98765 43210',
+          'harvest_date': product.harvestDate,
+          'is_organic': product.isOrganic,
+        },
+      );
+      if (resp is Map<String, dynamic>) {
+        return _fromApiMap(resp);
+      }
+    } catch (_) {}
+
+    return product;
   }
 
   List<ProductModel> _filterList(List<ProductModel> list, String category, String query) {
     return list.where((item) {
-      final matchesCat = category == 'All' || item.category == category;
+      final matchesCat = category == 'All' || category == 'All Items' || item.category == category;
       final matchesQuery = query.isEmpty ||
           item.title.toLowerCase().contains(query.toLowerCase()) ||
           item.farmerName.toLowerCase().contains(query.toLowerCase());
@@ -124,4 +154,3 @@ class ProductRepository {
     }).toList();
   }
 }
-

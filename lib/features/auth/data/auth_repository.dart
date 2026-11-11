@@ -1,12 +1,30 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/services/api_client.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/local_storage_service.dart';
 import '../domain/user_model.dart';
 import '../domain/user_role.dart';
-import 'firestore_user_service.dart';
+
+class OtpDispatchResult {
+  final String verificationId;
+  final String phone;
+  final bool smsSent;
+  final String provider;
+  final String message;
+  final String? sandboxOtpPreview;
+
+  const OtpDispatchResult({
+    required this.verificationId,
+    required this.phone,
+    required this.smsSent,
+    required this.provider,
+    required this.message,
+    this.sandboxOtpPreview,
+  });
+}
 
 abstract class AuthRepository {
-  Future<void> sendOtp({
+  Future<OtpDispatchResult> sendOtp({
     required String phoneNumber,
     required void Function(String verificationId) onCodeSent,
     required void Function(String error) onError,
@@ -20,21 +38,37 @@ abstract class AuthRepository {
     String? location,
   });
 
+  Future<UserModel> loginWithPin({
+    required String phoneNumber,
+    required String pin,
+    required UserRole role,
+  });
+
+  Future<UserModel> registerUser({
+    required String name,
+    required String phoneNumber,
+    required String location,
+    required UserRole role,
+    required String pin,
+  });
+
+  Future<BackendHealthStatus> checkBackendHealth();
+
   Future<void> signOut();
 
   Future<UserModel?> getCurrentUser();
 }
 
 class FirebaseAuthRepository implements AuthRepository {
-  FirebaseAuth? _firebaseAuth;
-  final FirestoreUserService _firestoreService;
+  final ApiClient _apiClient;
   final LocalStorageService localStorage;
+  FirebaseAuth? _firebaseAuth;
 
   FirebaseAuthRepository({
     FirebaseAuth? firebaseAuth,
-    FirestoreUserService? firestoreService,
+    ApiClient? apiClient,
     required this.localStorage,
-  }) : _firestoreService = firestoreService ?? FirestoreUserService() {
+  }) : _apiClient = apiClient ?? ApiClient(localStorage: localStorage) {
     if (firebaseAuth != null) _firebaseAuth = firebaseAuth;
   }
 
@@ -47,41 +81,69 @@ class FirebaseAuthRepository implements AuthRepository {
     return null;
   }
 
+  UserModel _userFromJson(Map<String, dynamic> map) {
+    UserRole role = UserRole.farmer;
+    final roleStr = map['role']?.toString() ?? 'farmer';
+    try {
+      role = UserRole.values.byName(roleStr);
+    } catch (_) {}
+
+    return UserModel(
+      uid: map['uid']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'AGRI AI User',
+      phone: map['phone']?.toString() ?? '',
+      role: role,
+      location: map['location']?.toString() ?? 'Warangal, Telangana',
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+
   @override
-  Future<void> sendOtp({
+  Future<BackendHealthStatus> checkBackendHealth() {
+    return _apiClient.checkHealth();
+  }
+
+  @override
+  Future<OtpDispatchResult> sendOtp({
     required String phoneNumber,
     required void Function(String verificationId) onCodeSent,
     required void Function(String error) onError,
   }) async {
-    // Format to E.164 standard for India (+91)
-    final formattedPhone = phoneNumber.startsWith('+')
-        ? phoneNumber
-        : '+91${phoneNumber.replaceAll(RegExp(r'\D'), '')}';
+    try {
+      final data = await _apiClient.post(
+        '/api/v1/auth/send-otp',
+        body: {'phone': phoneNumber.trim()},
+      );
 
-    final auth = firebaseAuth;
-    if (FirebaseService.isInitialized && auth != null) {
-      try {
-        await auth.verifyPhoneNumber(
-          phoneNumber: formattedPhone,
-          timeout: const Duration(seconds: 60),
-          verificationCompleted: (PhoneAuthCredential credential) async {
-            // Auto-retrieval handled in background
-          },
-          verificationFailed: (FirebaseAuthException e) {
-            onError(e.message ?? 'SMS Verification failed. Check your phone number.');
-          },
-          codeSent: (String verificationId, int? resendToken) {
-            onCodeSent(verificationId);
-          },
-          codeAutoRetrievalTimeout: (String verificationId) {},
-        );
-      } catch (e) {
-        onError('Firebase Auth error: $e');
+      if (data is! Map<String, dynamic>) {
+        throw ApiException('Unexpected response from OTP service.');
       }
-    } else {
-      // Local development simulation
-      await Future.delayed(const Duration(milliseconds: 600));
-      onCodeSent('mock-verification-id-$formattedPhone');
+
+      final result = OtpDispatchResult(
+        verificationId: data['verification_id']?.toString() ?? '',
+        phone: data['phone']?.toString() ?? phoneNumber,
+        smsSent: data['sms_sent'] == true,
+        provider: data['provider']?.toString() ?? 'Fast2SMS',
+        message: data['message']?.toString() ?? 'OTP created.',
+        sandboxOtpPreview: data['sandbox_otp_preview']?.toString(),
+      );
+
+      if (result.verificationId.isEmpty) {
+        throw ApiException('Backend did not return a verification session ID.');
+      }
+
+      onCodeSent(result.verificationId);
+      return result;
+    } catch (e) {
+      final errMsg = e.toString().replaceAll('Exception: ', '');
+      onError(errMsg);
+      return OtpDispatchResult(
+        verificationId: '',
+        phone: phoneNumber,
+        smsSent: false,
+        provider: 'Error',
+        message: errMsg,
+      );
     }
   }
 
@@ -93,62 +155,79 @@ class FirebaseAuthRepository implements AuthRepository {
     String? name,
     String? location,
   }) async {
-    final auth = firebaseAuth;
-    if (FirebaseService.isInitialized && auth != null) {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: smsCode,
-      );
+    final data = await _apiClient.post(
+      '/api/v1/auth/verify-otp',
+      body: {
+        'verification_id': verificationId,
+        'sms_code': smsCode.trim(),
+        'role': role.name,
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        if (location != null && location.trim().isNotEmpty) 'location': location.trim(),
+      },
+    );
 
-      final userCredential = await auth.signInWithCredential(credential);
-      final fbUser = userCredential.user;
-      if (fbUser == null) {
-        throw Exception('User authentication failed.');
-      }
-
-      // Check if user already exists in Firestore
-      UserModel? existingUser = await _firestoreService.getUser(fbUser.uid);
-      if (existingUser == null) {
-        existingUser = UserModel(
-          uid: fbUser.uid,
-          name: name?.trim().isNotEmpty == true ? name! : 'Kisan Farmer',
-          phone: fbUser.phoneNumber ?? '',
-          role: role,
-          location: location ?? 'Warangal, Telangana',
-          createdAt: DateTime.now(),
-        );
-        await _firestoreService.saveUser(existingUser);
-      }
-
-      await localStorage.saveUserSession(existingUser);
-      return existingUser;
-    } else {
-      // Local verification simulation (accepts '123456' or any 6-digit code for testing)
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (smsCode.trim().length != 6) {
-        throw Exception('Please enter a valid 6-digit OTP code.');
-      }
-
-      final mockUser = UserModel(
-        uid: 'user-${DateTime.now().millisecondsSinceEpoch}',
-        name: name?.trim().isNotEmpty == true
-            ? name!
-            : role == UserRole.farmer
-                ? 'Ramesh Kumar (Farmer)'
-                : role == UserRole.customer
-                    ? 'Priya Sharma (Customer)'
-                    : role == UserRole.deliveryPartner
-                        ? 'Suresh Patel (Delivery Partner)'
-                        : 'HQ Operations Officer (Admin)',
-        phone: verificationId.replaceAll('mock-verification-id-', ''),
-        role: role,
-        location: location ?? 'Warangal, Telangana',
-        createdAt: DateTime.now(),
-      );
-
-      await localStorage.saveUserSession(mockUser);
-      return mockUser;
+    if (data is! Map<String, dynamic> || data['user'] == null) {
+      throw ApiException('Invalid authentication response from server.');
     }
+
+    final user = _userFromJson(Map<String, dynamic>.from(data['user'] as Map));
+    final token = data['access_token']?.toString();
+    await localStorage.saveUserSession(user, token: token);
+    return user;
+  }
+
+  @override
+  Future<UserModel> loginWithPin({
+    required String phoneNumber,
+    required String pin,
+    required UserRole role,
+  }) async {
+    final data = await _apiClient.post(
+      '/api/v1/auth/login-pin',
+      body: {
+        'phone': phoneNumber.trim(),
+        'pin': pin.trim(),
+        'role': role.name,
+      },
+    );
+
+    if (data is! Map<String, dynamic> || data['user'] == null) {
+      throw ApiException('Invalid login response from server.');
+    }
+
+    final user = _userFromJson(Map<String, dynamic>.from(data['user'] as Map));
+    final token = data['access_token']?.toString();
+    await localStorage.saveUserSession(user, token: token);
+    return user;
+  }
+
+  @override
+  Future<UserModel> registerUser({
+    required String name,
+    required String phoneNumber,
+    required String location,
+    required UserRole role,
+    required String pin,
+  }) async {
+    final data = await _apiClient.post(
+      '/api/v1/auth/register',
+      body: {
+        'name': name.trim(),
+        'phone': phoneNumber.trim(),
+        'location': location.trim(),
+        'role': role.name,
+        'pin': pin.trim(),
+      },
+    );
+
+    if (data is! Map<String, dynamic> || data['user'] == null) {
+      throw ApiException('Invalid registration response from server.');
+    }
+
+    final user = _userFromJson(Map<String, dynamic>.from(data['user'] as Map));
+    final token = data['access_token']?.toString();
+    await localStorage.saveUserSession(user, token: token);
+    return user;
   }
 
   @override
@@ -162,13 +241,16 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<UserModel?> getCurrentUser() async {
-    final auth = firebaseAuth;
-    if (FirebaseService.isInitialized && auth != null) {
-      final fbUser = auth.currentUser;
-      if (fbUser != null) {
-        final profile = await _firestoreService.getUser(fbUser.uid);
-        if (profile != null) return profile;
-      }
+    final token = localStorage.authToken;
+    if (token != null && token.isNotEmpty) {
+      try {
+        final data = await _apiClient.get('/api/v1/auth/me');
+        if (data is Map<String, dynamic>) {
+          final user = _userFromJson(data);
+          await localStorage.saveUserSession(user, token: token);
+          return user;
+        }
+      } catch (_) {}
     }
     return localStorage.getSavedUser();
   }

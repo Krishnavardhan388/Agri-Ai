@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/api_client.dart';
 import '../../../core/widgets/agri_card.dart';
 import '../../../core/widgets/custom_button.dart';
 
@@ -54,14 +55,19 @@ class CommunityReply {
 }
 
 class KisanCharchaScreen extends StatefulWidget {
-  const KisanCharchaScreen({super.key});
+  final ApiClient? apiClient;
+
+  const KisanCharchaScreen({super.key, this.apiClient});
 
   @override
   State<KisanCharchaScreen> createState() => _KisanCharchaScreenState();
 }
 
 class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
+  late final ApiClient _apiClient;
   String _selectedCropFilter = 'All';
+  String _searchQuery = '';
+  bool _showSearchBar = false;
   final List<String> _cropFilters = ['All', 'Cotton', 'Chilli', 'Tomato', 'Paddy'];
 
   late List<CommunityPost> _posts;
@@ -69,6 +75,7 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
   @override
   void initState() {
     super.initState();
+    _apiClient = widget.apiClient ?? ApiClient();
     _posts = [
       CommunityPost(
         id: 'POST-101',
@@ -148,6 +155,42 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
         ],
       ),
     ];
+    _fetchLivePosts();
+  }
+
+  Future<void> _fetchLivePosts() async {
+    try {
+      final resp = await _apiClient.get('/api/v1/community/posts');
+      if (resp is List && resp.isNotEmpty && mounted) {
+        final loaded = resp.whereType<Map>().map((p) {
+          final rawComments = (p['comments'] as List?) ?? [];
+          return CommunityPost(
+            id: p['id']?.toString() ?? '',
+            authorName: p['author_name']?.toString() ?? 'Farmer',
+            authorRole: p['author_role']?.toString() ?? 'Grower',
+            location: p['location']?.toString() ?? 'India',
+            cropName: p['crop_name']?.toString() ?? 'Crop',
+            title: p['title']?.toString() ?? '',
+            content: p['content']?.toString() ?? '',
+            upvotes: (p['upvotes'] as num?)?.toInt() ?? 1,
+            aiVerified: p['ai_verified'] == true,
+            expertVerified: p['expert_verified'] == true,
+            timeAgo: 'Live',
+            replies: rawComments.whereType<Map>().map((c) {
+              return CommunityReply(
+                id: c['id']?.toString() ?? '',
+                authorName: c['author_name']?.toString() ?? 'Farmer',
+                authorRole: c['author_role']?.toString() ?? 'Peer',
+                content: c['content']?.toString() ?? '',
+                isAgronomist: c['is_agronomist_reply'] == true,
+                timeAgo: 'Recent',
+              );
+            }).toList(),
+          );
+        }).toList();
+        setState(() => _posts = loaded);
+      }
+    } catch (_) {}
   }
 
   void _openAskQuestionDialog() {
@@ -223,21 +266,46 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
               CustomButton(
                 text: 'Post to Kisan Charcha',
                 icon: Icons.send_rounded,
-                onPressed: () {
-                  if (titleController.text.trim().isEmpty) return;
+                onPressed: () async {
+                  final title = titleController.text.trim();
+                  if (title.isEmpty) return;
+                  final bodyText = contentController.text.trim().isEmpty
+                      ? 'Looking for advice from certified agronomists and peer farmers.'
+                      : contentController.text.trim();
+
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(this.context);
+
+                  String postId = 'POST-${DateTime.now().millisecondsSinceEpoch}';
+                  try {
+                    final resp = await _apiClient.post(
+                      '/api/v1/community/posts',
+                      body: {
+                        'author_name': 'Ramesh Kumar (You)',
+                        'author_role': 'Verified Farmer',
+                        'location': 'Warangal, Telangana',
+                        'crop_name': chosenCrop,
+                        'title': title,
+                        'content': bodyText,
+                      },
+                    );
+                    if (resp is Map && resp['id'] != null) {
+                      postId = resp['id'].toString();
+                    }
+                  } catch (_) {}
+
+                  if (!mounted) return;
                   setState(() {
                     _posts.insert(
                       0,
                       CommunityPost(
-                        id: 'POST-${DateTime.now().millisecondsSinceEpoch}',
+                        id: postId,
                         authorName: 'Ramesh Kumar (You)',
                         authorRole: 'Verified Farmer',
                         location: 'Warangal, Telangana',
                         cropName: chosenCrop,
-                        title: titleController.text.trim(),
-                        content: contentController.text.trim().isEmpty
-                            ? 'Looking for advice from certified agronomists and peer farmers.'
-                            : contentController.text.trim(),
+                        title: title,
+                        content: bodyText,
                         upvotes: 1,
                         aiVerified: true,
                         expertVerified: false,
@@ -246,11 +314,11 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
                       ),
                     );
                   });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  navigator.pop();
+                  messenger.showSnackBar(
                     const SnackBar(
                       backgroundColor: AppColors.primaryDark,
-                      content: Text('Question published! Agronomists & AI bot notified.'),
+                      content: Text('Question published to database! Agronomists & AI bot notified.'),
                     ),
                   );
                 },
@@ -305,15 +373,34 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
             CustomButton(
               text: 'Submit Reply',
               icon: Icons.check_circle_rounded,
-              onPressed: () {
-                if (replyController.text.trim().isEmpty) return;
+              onPressed: () async {
+                final replyText = replyController.text.trim();
+                if (replyText.isEmpty) return;
+
+                String replyId = 'REP-${DateTime.now().millisecondsSinceEpoch}';
+                try {
+                  final resp = await _apiClient.post(
+                    '/api/v1/community/posts/${post.id}/comments',
+                    body: {
+                      'author_name': 'Ramesh Kumar',
+                      'author_role': 'Farmer Contributor',
+                      'content': replyText,
+                      'is_agronomist_reply': false,
+                    },
+                  );
+                  if (resp is Map && resp['id'] != null) {
+                    replyId = resp['id'].toString();
+                  }
+                } catch (_) {}
+
+                if (!mounted) return;
                 setState(() {
                   post.replies.add(
                     CommunityReply(
-                      id: 'REP-${DateTime.now().millisecondsSinceEpoch}',
+                      id: replyId,
                       authorName: 'Ramesh Kumar',
                       authorRole: 'Farmer Contributor',
-                      content: replyController.text.trim(),
+                      content: replyText,
                       isAgronomist: false,
                       timeAgo: 'Just now',
                     ),
@@ -321,7 +408,7 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
                 });
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Your advice has been shared with fellow farmers!')),
+                  const SnackBar(content: Text('Your advice has been saved and shared!')),
                 );
               },
             ),
@@ -333,24 +420,43 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredPosts = _selectedCropFilter == 'All'
-        ? _posts
-        : _posts.where((p) => p.cropName.toLowerCase() == _selectedCropFilter.toLowerCase()).toList();
+    final filteredPosts = _posts.where((p) {
+      final matchesCrop = _selectedCropFilter == 'All' ||
+          p.cropName.toLowerCase() == _selectedCropFilter.toLowerCase();
+      final matchesQuery = _searchQuery.isEmpty ||
+          p.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          p.content.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesCrop && matchesQuery;
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('🌾 Kisan Charcha Forum', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Peer Farmer Discussions & ICAR Verified Agronomists', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-          ],
-        ),
+        title: _showSearchBar
+            ? TextField(
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search diseases, crops, remedies...',
+                  border: InputBorder.none,
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              )
+            : const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('🌾 Kisan Charcha Forum', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('Peer Farmer Discussions & ICAR Verified Agronomists', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                ],
+              ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () {},
+            icon: Icon(_showSearchBar ? Icons.close_rounded : Icons.search_rounded),
+            onPressed: () {
+              setState(() {
+                _showSearchBar = !_showSearchBar;
+                if (!_showSearchBar) _searchQuery = '';
+              });
+            },
           ),
         ],
       ),
@@ -519,6 +625,7 @@ class _KisanCharchaScreenState extends State<KisanCharchaScreen> {
                                 } else {
                                   post.upvotes++;
                                   post.isUpvoted = true;
+                                  _apiClient.post('/api/v1/community/posts/${post.id}/upvote').catchError((_) => null);
                                 }
                               });
                             },

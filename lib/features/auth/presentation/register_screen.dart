@@ -23,6 +23,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
+  final _pinController = TextEditingController();
   UserRole _role = UserRole.farmer;
   bool _termsAccepted = true;
 
@@ -31,6 +32,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _locationController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -71,6 +73,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             phone: _phoneController.text,
             location: _locationController.text,
             role: _role,
+            pin: _pinController.text.trim(),
           );
 
       if (success && mounted) {
@@ -200,6 +203,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       v == null || v.trim().isEmpty ? 'Enter your location' : null,
                 ),
                 const SizedBox(height: 16),
+
+                CustomTextField(
+                  controller: _pinController,
+                  label: 'Create Security PIN (4–6 digits)',
+                  hint: 'Used for fast PIN login',
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  prefixIcon: Icons.lock_outline_rounded,
+                  validator: (v) =>
+                      v == null || v.trim().length < 4 ? 'Enter at least a 4-digit PIN' : null,
+                ),
+                const SizedBox(height: 16),
+
+                if (authState.errorMessage != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.alertRed.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.alertRed),
+                    ),
+                    child: Text(
+                      authState.errorMessage!,
+                      style: const TextStyle(color: AppColors.alertRed, fontSize: 12),
+                    ),
+                  ),
 
                 Row(
                   children: [

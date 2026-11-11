@@ -1,11 +1,13 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../../../core/services/api_client.dart';
 import '../../crop_doctor/data/gemini_crop_doctor_service.dart';
 import '../domain/voice_language.dart';
 
 class AgriAiAdvisoryService {
   final GeminiCropDoctorService? cropDoctorService;
+  final ApiClient? apiClient;
 
-  const AgriAiAdvisoryService({this.cropDoctorService});
+  const AgriAiAdvisoryService({this.cropDoctorService, this.apiClient});
 
   Future<String> getAdvisoryResponse({
     required String userQuery,
@@ -13,7 +15,7 @@ class AgriAiAdvisoryService {
   }) async {
     final cleanQuery = userQuery.trim().toLowerCase();
 
-    // 1. Try Gemini Live AI if API key is present
+    // 1. Try client-side Gemini Live AI if user configured a local key
     final apiKey = cropDoctorService?.getApiKey();
     if (apiKey != null && apiKey.isNotEmpty) {
       try {
@@ -36,7 +38,25 @@ class AgriAiAdvisoryService {
       } catch (_) {}
     }
 
-    // 2. Authoritative Agricultural Knowledge Engine (Zero-Crash Fallback)
+    // 2. Try Real-Time Backend Voice Engine (MongoDB Live Mandi Rates + Server Gemini)
+    if (apiClient != null) {
+      try {
+        final resp = await apiClient!.post(
+          '/api/v1/voice/ask',
+          body: {
+            'query': userQuery,
+            'language': language == VoiceLanguage.telugu
+                ? 'te'
+                : (language == VoiceLanguage.hindi ? 'hi' : 'en'),
+          },
+        );
+        if (resp is Map<String, dynamic> && resp['reply'] != null) {
+          return resp['reply'].toString();
+        }
+      } catch (_) {}
+    }
+
+    // 3. Authoritative Agricultural Knowledge Engine (Zero-Crash Offline Fallback)
     return _getFallbackAdvisory(cleanQuery, language);
   }
 

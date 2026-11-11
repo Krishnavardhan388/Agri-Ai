@@ -51,3 +51,12 @@ app.*.map.json
 /android/build/*
 !/build/web/
 /android/build/
+
+# Backend secrets & local python artifacts
+.env
+.env.local
+__pycache__/
+*.db
+*.db-shm
+*.db-wal
+backend/.pytest_cache/

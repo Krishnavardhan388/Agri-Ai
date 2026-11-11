@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -24,6 +26,24 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   String _selectedCategory = 'Vegetables';
   bool _isOrganic = true;
   bool _isLoading = false;
+  Uint8List? _selectedImageBytes;
+
+  Future<void> _pickProducePhoto() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        setState(() => _selectedImageBytes = bytes);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to access photo picker in this environment.')),
+        );
+      }
+    }
+  }
 
   final List<String> _categories = [
     'Vegetables',
@@ -90,29 +110,58 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Photo Placeholder Box
-              Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.greenSurface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.greenAccent),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.add_photo_alternate_rounded, size: 48, color: AppColors.primaryGreen),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Tap to Upload Produce Photo',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark),
-                    ),
-                    Text(
-                      'Clear photo of your crop increases sales by 40%',
-                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                    ),
-                  ],
+              // Interactive Produce Photo Box
+              InkWell(
+                onTap: _pickProducePhoto,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 160,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.greenSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.greenAccent),
+                  ),
+                  child: _selectedImageBytes != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.memory(_selectedImageBytes!, fit: BoxFit.cover),
+                              Positioned(
+                                bottom: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Change Photo',
+                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add_photo_alternate_rounded, size: 48, color: AppColors.primaryGreen),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Tap to Upload Produce Photo',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                            ),
+                            Text(
+                              'Clear photo of your crop increases sales by 40%',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 20),

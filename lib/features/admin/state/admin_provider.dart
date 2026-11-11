@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/core_providers.dart';
 import '../data/admin_analytics_repository.dart';
 import '../domain/admin_analytics_summary.dart';
 import '../domain/admin_section.dart';
@@ -119,7 +120,7 @@ class AdminNotifier extends StateNotifier<AdminState> {
 }
 
 final adminAnalyticsRepoProvider = Provider<AdminAnalyticsRepository>((ref) {
-  return AdminAnalyticsRepository();
+  return AdminAnalyticsRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 final adminProvider = StateNotifierProvider<AdminNotifier, AdminState>((ref) {

@@ -5,6 +5,7 @@ import '../../../../core/widgets/agri_card.dart';
 import '../../../auth/presentation/login_screen.dart';
 import '../../../auth/presentation/role_selection_screen.dart';
 import '../../../auth/state/auth_provider.dart';
+import '../../../voice_assistant/presentation/agri_mitra_voice_screen.dart';
 
 class FarmerProfileTab extends ConsumerWidget {
   const FarmerProfileTab({super.key});
@@ -52,9 +53,9 @@ class FarmerProfileTab extends ConsumerWidget {
                             color: AppColors.greenSurface,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
-                            'Verified Farmer • Warangal',
-                            style: TextStyle(
+                          child: Text(
+                            'Verified Farmer • ${authState.user?.location ?? "Warangal"}',
+                            style: const TextStyle(
                               color: AppColors.primaryDark,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -82,9 +83,13 @@ class FarmerProfileTab extends ConsumerWidget {
             _ProfileOptionTile(
               icon: Icons.mic_rounded,
               title: 'AGRI MITRA Voice Assistant',
-              subtitle: 'Voice enabled for diagnosis & mandi questions',
+              subtitle: 'Tap to open Telugu / Hindi / English voice AI',
               trailing: const Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 20),
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AgriMitraVoiceScreen()),
+                );
+              },
             ),
             const SizedBox(height: 10),
             _ProfileOptionTile(
@@ -102,14 +107,43 @@ class FarmerProfileTab extends ConsumerWidget {
               icon: Icons.security_rounded,
               title: 'Privacy & Permissions',
               subtitle: 'GPS Location & Camera permissions',
-              onTap: () {},
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Privacy & Sensor Permissions'),
+                    content: const Text(
+                      '• GPS Location: Used for hyper-local Open-Meteo weather, Sentinel-2 NDVI radar, and nearby Mandi yard rates.\n'
+                      '• Camera & Gallery: Used to capture leaf symptoms for Crop Doctor AI.\n'
+                      '• Microphone: Used by AGRI MITRA Voice Assistant in vernacular languages.',
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 10),
             _ProfileOptionTile(
               icon: Icons.help_outline_rounded,
               title: 'Kisan Helpline & Support',
               subtitle: 'Toll-free 1800-180-1551 (Kisan Call Center)',
-              onTap: () {},
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Kisan Call Center Support'),
+                    content: const Text(
+                      '24x7 Agronomist Toll-Free Helpline: 1800-180-1551\n'
+                      'Available in Telugu, Hindi, and English across India.',
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 24),
 

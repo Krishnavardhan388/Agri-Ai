@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/agri_card.dart';
 import '../../../mandi_prices/domain/mandi_crop_model.dart';
 import '../../../mandi_prices/presentation/mandi_market_screen.dart';
+import '../../../smart_farming/data/weather_service.dart';
 import '../../../smart_farming/state/smart_farming_provider.dart';
 import '../../../voice_assistant/presentation/agri_mitra_voice_screen.dart';
 import '../../../community/presentation/kisan_charcha_screen.dart';
@@ -23,6 +24,8 @@ class FarmerHomeTab extends ConsumerWidget {
     final smartState = ref.watch(smartFarmingProvider);
     final weather = smartState.weather;
     final location = smartState.location;
+    final radar = smartState.radar ?? SatelliteRadarData.initial();
+    final broadcasts = smartState.broadcasts;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -66,10 +69,49 @@ class FarmerHomeTab extends ConsumerWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
+            icon: Icon(
+              broadcasts.isNotEmpty ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+              color: broadcasts.isNotEmpty ? AppColors.earthAmber : null,
+            ),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new alerts today')),
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Row(
+                    children: [
+                      Icon(Icons.campaign_rounded, color: AppColors.primaryGreen),
+                      SizedBox(width: 8),
+                      Text('District Agro Alerts', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  content: broadcasts.isEmpty
+                      ? const Text('No urgent outbreak advisories for your district right now.')
+                      : SizedBox(
+                          width: 400,
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: broadcasts.length,
+                            separatorBuilder: (_, _) => const Divider(),
+                            itemBuilder: (_, idx) {
+                              final b = broadcasts[idx];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  '${b['district']} • ${b['crop']}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                subtitle: Text(
+                                  b['advisory']?.toString() ?? '',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                  ],
+                ),
               );
             },
           ),
@@ -315,7 +357,7 @@ class FarmerHomeTab extends ConsumerWidget {
                     color: AppColors.greenSurface,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text('10m Resolution', style: TextStyle(fontSize: 10, color: AppColors.primaryDark, fontWeight: FontWeight.bold)),
+                  child: Text(radar.orbitTime, style: const TextStyle(fontSize: 10, color: AppColors.primaryDark, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -335,7 +377,7 @@ class FarmerHomeTab extends ConsumerWidget {
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              const Text('NDVI: 0.78', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                              Text('NDVI: ${radar.ndviIndex.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -343,7 +385,7 @@ class FarmerHomeTab extends ConsumerWidget {
                                   color: AppColors.primaryGreen.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Dense & Healthy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                                child: Text(radar.ndviStatus, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
                               ),
                             ],
                           ),
@@ -351,7 +393,7 @@ class FarmerHomeTab extends ConsumerWidget {
                       ),
                       Container(
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppColors.greenSurface,
                           shape: BoxShape.circle,
                         ),
@@ -360,11 +402,10 @@ class FarmerHomeTab extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Progress bar representing NDVI (0.78 out of 1.0)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
-                      value: 0.78,
+                      value: radar.ndviIndex.clamp(0.0, 1.0),
                       backgroundColor: Colors.grey.shade200,
                       valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                       minHeight: 8,
@@ -376,9 +417,9 @@ class FarmerHomeTab extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _RadarIndexMetric(label: 'NDRE Chlorophyll', value: '0.64', status: 'Optimal N'),
-                      _RadarIndexMetric(label: 'NDWI Canopy Water', value: '0.42', status: 'Hydrated'),
-                      _RadarIndexMetric(label: 'Soil Moisture', value: '68%', status: 'Normal'),
+                      _RadarIndexMetric(label: 'NDRE Chlorophyll', value: radar.ndreIndex.toStringAsFixed(2), status: 'Optimal N'),
+                      _RadarIndexMetric(label: 'NDWI Canopy Water', value: radar.ndwiIndex.toStringAsFixed(2), status: 'Hydrated'),
+                      _RadarIndexMetric(label: 'Soil Moisture', value: '${radar.soilMoisturePercentage.toStringAsFixed(0)}%', status: 'Normal'),
                     ],
                   ),
                   const Divider(height: 22),
@@ -407,17 +448,26 @@ class FarmerHomeTab extends ConsumerWidget {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                     decoration: BoxDecoration(
-                                      color: AppColors.greenSurface,
+                                      color: radar.sporeInfectionRisk.contains('HIGH')
+                                          ? const Color(0xFFFDE8E8)
+                                          : AppColors.greenSurface,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text('LOW RISK', style: TextStyle(color: AppColors.primaryDark, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    child: Text(
+                                      radar.sporeInfectionRisk,
+                                      style: TextStyle(
+                                        color: radar.sporeInfectionRisk.contains('HIGH') ? AppColors.alertRed : AppColors.primaryDark,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 2),
-                              const Text(
-                                'RH 64% & 24°C prevents spore germination. Pre-symptomatic stress is 0%. Next risk spike in 48h after predicted drizzle.',
-                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
+                              Text(
+                                radar.microclimateAlert,
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
                               ),
                             ],
                           ),

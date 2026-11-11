@@ -1,6 +1,11 @@
+import '../../../core/services/api_client.dart';
 import '../domain/mandi_crop_model.dart';
 
 class MandiService {
+  final ApiClient _apiClient;
+
+  MandiService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+
   final List<MandiCropItem> _allMandiCrops = [
     MandiCropItem(
       id: 'mandi-cotton',
@@ -106,9 +111,31 @@ class MandiService {
     String query = '',
     String category = 'All',
   }) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    List<MandiCropItem> sourceList = _allMandiCrops;
+    try {
+      final resp = await _apiClient.get('/api/v1/mandi/rates');
+      if (resp is List && resp.isNotEmpty) {
+        sourceList = resp.whereType<Map>().map((m) {
+          final trend = m['trend']?.toString() ?? 'up';
+          return MandiCropItem(
+            id: m['id']?.toString() ?? '',
+            cropName: m['crop_name']?.toString() ?? '',
+            variety: m['variety']?.toString() ?? 'Standard Grade',
+            category: m['category']?.toString() ?? 'Vegetables',
+            marketName: m['market_yard']?.toString() ?? 'APMC Yard',
+            distanceKm: (m['distance_km'] as num?)?.toDouble() ?? 4.5,
+            minPrice: (m['min_price'] as num?)?.toDouble() ?? 0.0,
+            maxPrice: (m['max_price'] as num?)?.toDouble() ?? 0.0,
+            modalPrice: (m['modal_price'] as num?)?.toDouble() ?? 0.0,
+            priceChange: (m['price_change'] as num?)?.toDouble() ?? 0.0,
+            isPriceUp: trend.toLowerCase() != 'down',
+            lastUpdated: DateTime.tryParse(m['last_updated']?.toString() ?? '') ?? DateTime.now(),
+          );
+        }).toList();
+      }
+    } catch (_) {}
 
-    return _allMandiCrops.where((item) {
+    return sourceList.where((item) {
       final matchesQuery = query.isEmpty ||
           item.cropName.toLowerCase().contains(query.toLowerCase()) ||
           item.variety.toLowerCase().contains(query.toLowerCase());
